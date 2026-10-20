@@ -208,8 +208,12 @@ function build(speciesId) {
   const chord = sp.id === 'stork' ? 0.32 : 0.3;
   const armGeo = wingShape(halfSpan * 0.45, chord, false, sp);
   const handGeo = wingShape(halfSpan * 0.55, chord * 0.95, true, sp);
+  // mirroring flips the triangle winding, so the normals must be rebuilt or
+  // the left wing is lit from the wrong side (dark from above)
   const armGeoL = armGeo.clone().scale(-1, 1, 1);
   const handGeoL = handGeo.clone().scale(-1, 1, 1);
+  armGeoL.computeVertexNormals();
+  handGeoL.computeVertexNormals();
 
   const legLen = 0.16;
   const legGeo = new THREE.CylinderGeometry(0.011, 0.008, legLen, 4);

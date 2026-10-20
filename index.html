@@ -30,6 +30,7 @@
             <h3>Hunter <span class="ar">الصياد</span></h3>
             <label>Name <input id="name" maxlength="16" placeholder="Abu Ali" /></label>
             <button id="btnSettings">Settings <span class="ar">الإعدادات</span></button>
+            <button id="btnGuide">Bird guide <span class="ar">دليل الطيور</span></button>
             <p class="tip">Graphics, mouse, sound and aiming help are in Settings. They are saved for next time.</p>
           </div>
           <div class="panel">
@@ -98,6 +99,7 @@
           <p class="dim" id="pauseInfo"></p>
           <div class="pause-btns">
             <button id="btnPauseSettings">Settings</button>
+            <button id="btnPauseGuide">Bird guide</button>
             <button id="btnQuit">End the hunt</button>
           </div>
         </div>
@@ -154,6 +156,18 @@
           <label>Show downed birds on the compass <input data-setting="markers" type="checkbox" /></label>
           <p class="dim">Turn these off for a more realistic hunt.</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Bird guide -->
+    <div id="guide" class="overlay hidden">
+      <div class="guide-box">
+        <div class="settings-head">
+          <h3>Bird guide <span class="ar">دليل الطيور</span></h3>
+          <button id="btnGuideClose" class="close" aria-label="Close the bird guide">✕</button>
+        </div>
+        <p class="dim">Lebanese hunters' names for each bird. Names vary by village — this is how they are said in most of Lebanon.</p>
+        <div class="guide-cards"></div>
       </div>
     </div>
 

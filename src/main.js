@@ -19,6 +19,7 @@ import { settings, setSetting, onSettingChange, bindSettings } from './core/sett
 import { ChallengeTracker, challengeListHtml, CHALLENGES } from './core/challenges.js';
 import { HUD } from './ui/hud.js';
 import { HuntMap } from './ui/map.js';
+import { openGuide } from './ui/guide.js';
 import { Net } from './net/net.js';
 import { Avatar } from './net/avatar.js';
 
@@ -165,6 +166,15 @@ $('btnPauseSettings').onclick = (e) => {
   openSettings();
 };
 $('btnSummaryDone').onclick = () => location.reload();
+$('btnGuide').onclick = () => openGuide($('guide'));
+$('btnPauseGuide').onclick = (e) => {
+  e.stopPropagation();
+  openGuide($('guide'));
+};
+$('btnGuideClose').onclick = () => $('guide').classList.add('hidden');
+$('guide').onclick = (e) => {
+  if (e.target === $('guide')) $('guide').classList.add('hidden');
+};
 
 // ---------------------------------------------------------------- game
 
