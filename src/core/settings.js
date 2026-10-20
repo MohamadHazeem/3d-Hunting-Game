@@ -2,6 +2,7 @@
 // are bound automatically (range -> number, checkbox -> boolean, select -> string).
 
 const DEFAULTS = {
+  lang: typeof navigator !== 'undefined' && /^ar/i.test(navigator.language || '') ? 'ar' : 'en',
   name: '',
   quality: 'auto',
   sens: 1,

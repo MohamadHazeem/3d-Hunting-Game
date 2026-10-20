@@ -198,3 +198,18 @@ table.shotlog .ar { margin: 0; color: var(--accent); }
 .g-row { color: var(--dim); line-height: 1.45; margin: 4px 0; }
 .g-row span { display: inline-block; min-width: 74px; color: var(--ink); font-weight: 600; }
 .listen { width: auto; padding: 6px 12px; font-size: 12.5px; margin-top: 8px; }
+
+/* Language */
+.lang-switch { display: flex; gap: 6px; justify-content: flex-end; }
+.lang-switch button { width: auto; margin: 0; padding: 5px 12px; font-size: 13px; }
+.lang-switch button[data-lang='ar'] { font-family: Cairo, sans-serif; }
+.lang-switch button.sel { border-color: var(--accent); color: var(--accent); }
+.lang-ar body, .lang-ar button, .lang-ar input, .lang-ar select { font-family: Cairo, Inter, sans-serif; }
+.lang-ar .overlay, .lang-ar #scoreboard, .lang-ar #map .map-key, .lang-ar #bag, .lang-ar #prompt, .lang-ar #chat { direction: rtl; }
+.lang-ar .lang-switch { justify-content: flex-start; }
+.lang-ar h3 { letter-spacing: 0; }
+.lang-ar .g-row span { min-width: 90px; }
+.lang-ar #scoreboard th, .lang-ar #scoreboard td, .lang-ar table.shotlog { text-align: right; }
+.lang-ar .advice, .lang-ar .ch { text-align: right; }
+.lang-ar .ar { margin-left: 0; margin-right: 0; }
+.msg, #prompt { unicode-bidi: plaintext; }

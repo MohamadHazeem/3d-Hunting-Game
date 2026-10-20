@@ -21,6 +21,7 @@ import { audio, VOLUME_DEFAULTS } from './audio/audio.js';
 import { Companion } from './audio/companion.js';
 import { settings, setSetting, onSettingChange, bindSettings } from './core/settings.js';
 import { ChallengeTracker, challengeListHtml, CHALLENGES } from './core/challenges.js';
+import { t, num, isAr, applyI18n, setLang } from './core/i18n.js';
 import { HUD } from './ui/hud.js';
 import { HuntMap } from './ui/map.js';
 import { openGuide } from './ui/guide.js';
@@ -41,10 +42,11 @@ function renderMenu() {
     const card = document.createElement('div');
     card.className = 'hunt' + (h.id === settings.hunt ? ' sel' : '');
     const chips = Object.keys(h.species)
-      .map((s) => `<span class="chip${SPECIES[s].protected ? ' prot' : ''}"><b>${SPECIES[s].ar}</b>${SPECIES[s].en.replace(' (protected)', '')}</span>`)
+      .map((s) => `<span class="chip${SPECIES[s].protected ? ' prot' : ''}"><b>${SPECIES[s].ar}</b>${isAr() ? '' : SPECIES[s].en.replace(' (protected)', '')}</span>`)
       .join('');
-    card.innerHTML = `<div class="t-ar">${h.ar}</div><div class="t-en">${h.en}</div><div class="t-reg">${h.region}</div>
-      <div class="t-when">${h.month} · ${h.monthAr} · ${fmtHour(h.startHour)}</div><div class="t-blurb">${h.blurb}</div><div class="birds">${chips}</div>`;
+    const ar = isAr();
+    card.innerHTML = `<div class="t-ar">${h.ar}</div>${ar ? '' : `<div class="t-en">${h.en}</div>`}<div class="t-reg">${ar ? h.regionAr : h.region}</div>
+      <div class="t-when">${ar ? h.monthAr : `${h.month} · ${h.monthAr}`} · ${num(fmtHour(h.startHour))}</div><div class="t-blurb">${ar ? h.blurbAr : h.blurb}</div><div class="birds">${chips}</div>`;
     card.onclick = () => {
       settings.hunt = h.id;
       renderMenu();
@@ -60,8 +62,18 @@ function fmtHour(h) {
 }
 
 $('name').value = settings.name;
+applyI18n();
 renderMenu();
 $('challenges').innerHTML = challengeListHtml();
+for (const b of document.querySelectorAll('.lang-switch button')) {
+  b.classList.toggle('sel', b.dataset.lang === settings.lang);
+  b.onclick = () => {
+    setLang(b.dataset.lang);
+    for (const x of document.querySelectorAll('.lang-switch button')) x.classList.toggle('sel', x === b);
+    renderMenu();
+    $('challenges').innerHTML = challengeListHtml();
+  };
+}
 setupSettingsPanel();
 
 // ---------------------------------------------------------------- settings
@@ -69,6 +81,7 @@ setupSettingsPanel();
 function setupSettingsPanel() {
   const panel = $('settings');
   bindSettings(panel);
+  bindSettings($('menu'));
   for (const el of panel.querySelectorAll('[data-volume]')) {
     const bus = el.dataset.volume;
     const out = el.parentElement.querySelector('output');
@@ -255,29 +268,29 @@ class Game {
     this.camera = camera;
     this.gfx = new GfxPipeline(renderer, scene, camera, q);
 
-    this.progress(0.02, 'Shaping the mountains…');
+    this.progress(0.02, t('load1'));
     await nextFrame();
     const terrain = new Terrain(this.hunt, q);
     terrain.generate((p) => this.progress(0.02 + p * 0.35));
     this.terrain = terrain;
     audio.setWorld((x, z) => terrain.height(x, z));
-    this.progress(0.4, 'Laying textures…');
+    this.progress(0.4, t('load2'));
     await nextFrame();
     await terrain.buildMeshes(scene);
 
-    this.progress(0.5, 'Building the stone house…');
+    this.progress(0.5, t('load3'));
     await nextFrame();
     const structures = new Structures(this.hunt, terrain);
     await structures.build(scene);
     this.structures = structures;
 
-    this.progress(0.58, 'Planting olive, oak and pine…');
+    this.progress(0.58, t('load4'));
     await nextFrame();
     const veg = new Vegetation(this.hunt, terrain, q);
     await veg.build(scene, structures.clearing);
     this.veg = veg;
 
-    this.progress(0.82, 'Growing grass…');
+    this.progress(0.82, t('load5'));
     await nextFrame();
     this.grass = new Grass(this.hunt, terrain, q);
     this.grass.build(scene);
@@ -320,7 +333,7 @@ class Game {
         },
         onDeliver: (id) => this.deliver(id),
         onPoint: (b) => {
-          this.hud.message('The dog is on point! · الكلب واقف — walk in, or <b>F</b> to send it in', 'kill');
+          this.hud.message(t('dogPoint'), 'kill');
           this.companion.onDogPoint();
         },
       });
@@ -331,16 +344,16 @@ class Game {
     if (this.authority) this.birds.initialPopulation(this.playerList());
     this.setupNet();
 
-    this.progress(0.93, 'Drawing the map…');
+    this.progress(0.93, t('load6'));
     await nextFrame();
     this.map = new HuntMap($('map'), terrain, structures);
-    this.progress(0.95, 'Compiling shaders…');
+    this.progress(0.95, t('load7'));
     await nextFrame();
     // warm up shaders so the first frames don't stutter
     this.player.update(0, false);
     this.atmo.update(0, camera, this.player.pos, 0);
     renderer.compile(scene, camera);
-    this.progress(1, 'Ready');
+    this.progress(1, t('ready'));
 
     addEventListener('resize', () => this.resize());
     this.resize();
@@ -417,16 +430,16 @@ class Game {
     this.hud.show(true);
     this.hud.setRoom(this.net ? this.net.code : null, this.players.size);
     this.updateHudStats();
-    this.hud.message(`<span class="ar">${this.hunt.ar}</span> ${this.hunt.en} — ${this.hunt.month}`, 'info');
+    this.hud.message(isAr() ? `<span class="ar">${this.hunt.ar}</span> — ${this.hunt.monthAr}` : `<span class="ar">${this.hunt.ar}</span> ${this.hunt.en} — ${this.hunt.month}`, 'info');
     const list = Object.keys(this.hunt.species).filter((s) => !SPECIES[s].protected);
-    this.hud.message(`Looking for: ${list.map((s) => `<span class="ar">${SPECIES[s].ar}</span>`).join(' ')}`, 'info');
+    this.hud.message(t('lookingFor', { list: list.map((s) => `<span class="ar">${SPECIES[s].ar}</span>`).join(' ') }), 'info');
     const flyers = list.some((s) => SPECIES[s].behaviour === 'flyover');
-    if (flyers && this.passage.kind === 'big') this.hud.message('A big passage day — birds are pouring through! · يوم مرقة', 'kill');
-    else if (flyers && this.passage.kind === 'quiet') this.hud.message('A quiet morning — few birds moving today', 'info');
+    if (flyers && this.passage.kind === 'big') this.hud.message(t('bigDay'), 'kill');
+    else if (flyers && this.passage.kind === 'quiet') this.hud.message(t('quietDay'), 'info');
     const wn = this.wind.name;
-    this.hud.message(`Wind ${wn.en} ${this.wind.speed.toFixed(0)} m/s · ريح <span class="ar">${wn.ar}</span>`, 'info');
+    this.hud.message(t('wind', { dir: wn.en, speed: num(this.wind.speed.toFixed(0)), ar: `<span class="ar">${wn.ar}</span>` }), 'info');
     this.companion.onStart(this.atmo.hour);
-    if (this.mode === 'host') this.hud.message(`Share the code <b style="color:#e2a23b;letter-spacing:.2em">${this.net.code}</b> with your friends`, 'info');
+    if (this.mode === 'host') this.hud.message(t('shareCode', { code: `<b style="color:#e2a23b;letter-spacing:.2em">${this.net.code}</b>` }), 'info');
     this.hud.pause(true, this.net ? `Hunt code: ${this.net.code}` : '');
     audio.setScene({
       month: this.hunt.month,
@@ -461,7 +474,7 @@ class Game {
     if (p.dog) p.dog.dispose();
     this.players.delete(id);
     this.hud.setRoom(this.net ? this.net.code : null, this.players.size);
-    this.hud.message(`${p.name} left the hunt`, 'info');
+    this.hud.message(t('left', { name: esc(p.name) }), 'info');
   }
 
   playerList() {
@@ -486,7 +499,7 @@ class Game {
         net.send({ t: 'welcome', you: from, hunt: this.hunt.id, hour: this.atmo.hour, roster: this.roster(), wind: { base: this.wind.base, from: this.wind.from }, passage: this.passage }, from);
         net.broadcast({ t: 'roster', list: this.roster() });
         net.broadcast(this.scoresMsg());
-        this.hud.message(`${m.name} joined the hunt`, 'info');
+        this.hud.message(t('joined', { name: esc(m.name) }), 'info');
       });
       net.on('leave', (m, from) => {
         this.removePlayer(from);
@@ -559,7 +572,7 @@ class Game {
       net.on('chat', (m) => this.hud.chat(m.from, m.text));
       net.on('hour', (m) => (this.atmo.hour = m.hour));
       net.on('hostLost', () => {
-        this.hud.message('The host ended the hunt.', 'warn');
+        this.hud.message(t('hostEnded'), 'warn');
         this.hud.pause(true, 'Connection to host lost');
       });
       this.applyRoster(this.opts.welcome.roster);
@@ -574,7 +587,7 @@ class Game {
     const ids = new Set(list.map((r) => r.id));
     for (const r of list) if (r.id !== this.myId && !this.players.has(r.id)) {
       this.addPlayer(r.id, r.name);
-      this.hud.message(`${r.name} is hunting with you`, 'info');
+      this.hud.message(t('huntingWith', { name: esc(r.name) }), 'info');
     }
     for (const id of [...this.players.keys()]) if (id !== this.myId && !ids.has(id)) this.removePlayer(id);
   }
@@ -633,18 +646,18 @@ class Game {
       if (inLine(p.pos, 1.2, 90, 0.6)) {
         const me = this.players.get(this.myId);
         me.score -= 50;
-        this.hud.message(`Unsafe shot — ${p.name} was in your line! −50 · انتبه عرفيقك`, 'warn');
+        this.hud.message(t('unsafe', { name: esc(p.name) }), 'warn');
         this.companion.onUnsafe();
         this.updateHudStats();
         if (this.net) this.net.broadcast({ t: 'chat', from: '⚠', text: `${settings.name} fired towards ${p.name}` });
         return;
       }
       if (p.dog && inLine(p.dog.pos, 0.5, 50, 0.4)) {
-        this.hud.message(`Careful — ${p.name}'s dog was in your line! · انتبه عالكلب`, 'warn');
+        this.hud.message(t('unsafeDog', { name: esc(p.name) }), 'warn');
         return;
       }
     }
-    if (this.dog && inLine(this.dog.pos, 0.5, 50, 0.4)) this.hud.message('Careful — your dog was in the line of fire! · انتبه عالكلب', 'warn');
+    if (this.dog && inLine(this.dog.pos, 0.5, 50, 0.4)) this.hud.message(t('unsafeMyDog'), 'warn');
   }
 
   remoteShot(m) {
@@ -677,9 +690,9 @@ class Game {
       entry.side = m.side;
       entry.vert = m.vert;
       if (settings.shotFeedback && entry.result !== 'kill') {
-        const tag = `<span class="ar">${sp.ar}</span> ${r.dist.toFixed(0)} m`;
-        if (entry.result === 'wound') this.hud.message(`${tag} · only ${r.hits} pellet${r.hits > 1 ? 's' : ''} struck${m.text ? ' — ' + m.text : ''}`, 'info');
-        else this.hud.message(`${tag} · ${m.text || 'missed'}`, 'info');
+        const tag = `<span class="ar">${sp.ar}</span> ${num(r.dist.toFixed(0))} ${isAr() ? 'م' : 'm'}`;
+        if (entry.result === 'wound') this.hud.message(t('onlyPellets', { tag, n: num(r.hits), how: m.text ? ' — ' + m.text : '' }), 'info');
+        else this.hud.message(`${tag} · ${m.text || t('missed')}`, 'info');
       }
     }
     this.shotLog.push(entry);
@@ -693,7 +706,8 @@ class Game {
   onChallenge(c, how) {
     const me = this.players.get(this.myId);
     if (how.daily) me.score += 50;
-    this.hud.message(`Challenge${how.daily ? ' of the day' : ''}: <b>${c.en}</b> <span class="ar">${c.ar}</span>${how.daily ? ' · +50' : ''}`, 'kill');
+    const title = isAr() ? `<b>${c.ar}</b>` : `<b>${c.en}</b> <span class="ar">${c.ar}</span>`;
+    this.hud.message(t(how.daily ? 'challengeDaily' : 'challenge', { title }), 'kill');
     audio.play('hitConfirm', null, { gain: 0.3, rate: 1.5 });
     this.updateHudStats();
     if (this.net) this.net.broadcast(this.scoresMsg());
@@ -702,7 +716,7 @@ class Game {
   onBoardResult(res, shot) {
     for (const b of res) {
       const pct = Math.round((b.inCircle / shot.spec.pellets) * 100);
-      this.hud.message(`Board at ${b.dist.toFixed(0)} m · ${shot.choke.name}, ${shot.spec.name}: ${b.onBoard} pellets on the paper, ${b.inCircle} in the 75 cm circle (${pct}%)`, 'info');
+      this.hud.message(t('board', { d: num(b.dist.toFixed(0)), choke: shot.choke.name, shot: shot.spec.name, on: num(b.onBoard), in: num(b.inCircle), pct: num(pct) }), 'info');
     }
   }
 
@@ -758,15 +772,15 @@ class Game {
       audio.play('hitConfirm', null, { gain: 0.25 });
       const dist = m.dist || this.lastShotDist || 0;
       if (sp.protected) {
-        this.hud.message(`<span class="ar">${sp.ar}</span> You shot a protected White Stork! −250 · طير محمي`, 'warn');
+        this.hud.message(t('stork', { ar: `<span class="ar">${sp.ar}</span>` }), 'warn');
         this.companion.onStork();
       } else {
-        this.hud.message(`<span class="ar">${sp.ar}</span> ${sp.en} down — ${dist.toFixed(0)} m`, 'kill');
+        this.hud.message(t('down', { ar: `<span class="ar">${sp.ar}</span>`, en: sp.en, d: num(dist.toFixed(0)) }), 'kill');
       }
       this.updateHudStats();
     } else {
       const p = this.players.get(m.by);
-      if (p) this.hud.message(`${p.name}: <span class="ar">${sp.ar}</span> ${sp.en}`, 'info');
+      if (p) this.hud.message(t('friendDown', { name: esc(p.name), ar: `<span class="ar">${sp.ar}</span>`, en: sp.en }), 'info');
     }
   }
 
@@ -774,7 +788,7 @@ class Game {
     if (m.by !== this.myId) return;
     const sp = SPECIES[m.sp];
     if (settings.hitMarker) this.hud.hitMarker(false);
-    this.hud.message(`Hit the <span class="ar">${sp.ar}</span> — wounded, mark where it drops`, 'info');
+    this.hud.message(t('wounded', { ar: `<span class="ar">${sp.ar}</span>` }), 'info');
   }
 
   // Another hunter's dog, drawn from what they send.
@@ -817,8 +831,8 @@ class Game {
     if (m.by === this.myId) {
       audio.play('pickup', null, { gain: 0.6 });
       const sp = SPECIES[m.sp];
-      const whose = m.owner !== this.myId ? ` (${this.players.get(m.owner)?.name || 'friend'}'s)` : '';
-      this.hud.message(`Into the bag: <span class="ar">${sp.ar}</span> ${sp.en}${whose}`, 'kill');
+      const whose = m.owner !== this.myId ? ` (${esc(this.players.get(m.owner)?.name || '…')})` : '';
+      this.hud.message(t('intoBag', { ar: `<span class="ar">${sp.ar}</span>`, en: sp.en, whose }), 'kill');
       this.challenges.onBag(this.players.get(this.myId).bag);
     }
     this.updateHudStats();
@@ -836,7 +850,7 @@ class Game {
     audio.play('whistle', null, { gain: 0.5, rate: 1.8 });
     if (this.authority) {
       const n = this.birds.whistle(pos);
-      if (n) this.hud.message('A flock turns towards your whistle…', 'info');
+      if (n) this.hud.message(t('whistleFlock'), 'info');
     }
     if (this.net) this.net.broadcast({ t: 'whistle', p: pos.toArray() });
   }
@@ -895,7 +909,7 @@ class Game {
       if (input.pressed('KeyM')) this.map.show(!this.map.open);
       if (input.pressed('KeyF') && this.dog) {
         const r = this.dog.command();
-        this.hud.message(r === 'flush' ? 'Go on! · هيا' : r === 'heel' ? 'Heel · لهون' : 'Hunt on · فتّش', 'info');
+        this.hud.message(t(r === 'flush' ? 'dogGo' : r === 'heel' ? 'dogHeel' : 'dogHunt'), 'info');
       }
     }
     this.whistleCD -= dt;
@@ -930,7 +944,7 @@ class Game {
       this.updateSoundscape(sim);
       if (elev < 4 && this.atmo.hour > 12 && !this.duskWarned) {
         this.duskWarned = true;
-        this.hud.message('The light is fading — last chances of the day', 'info');
+        this.hud.message(t('fading'), 'info');
         this.companion.onDusk();
       }
     }
@@ -1001,10 +1015,10 @@ class Game {
     if (this.map.open) {
       this.map.draw({ me, yaw: this.player.yaw, players: [...this.players.values()], birds: this.birds.birds.values(), myId: this.myId, boards: this.boards.boards });
     }
-    if (near) hud.prompt(`<b>E</b> pick up <span class="ar">${near.sp.ar}</span> ${near.sp.en}`);
-    else if (this.boards.boards.length && this.boards.nearFiringPoint(me) && this.clock.elapsedTime < 240) hud.prompt(`Practice boards at ${this.boards.boards.map((b) => b.dist).join(' · ')} m to your right — shoot one to see your pattern`);
-    else if (this.player.outOfBounds > 0) hud.prompt('Edge of the hunting ground · حدود منطقة الصيد');
-    else if (!gun.canFire && !gun.reloading) hud.prompt('<b>R</b> reload');
+    if (near) hud.prompt(t('pickUp', { ar: `<span class="ar">${near.sp.ar}</span>`, en: near.sp.en }));
+    else if (this.boards.boards.length && this.boards.nearFiringPoint(me) && this.clock.elapsedTime < 240) hud.prompt(t('boardsPrompt', { list: this.boards.boards.map((b) => num(b.dist)).join(' · ') }));
+    else if (this.player.outOfBounds > 0) hud.prompt(t('edge'));
+    else if (!gun.canFire && !gun.reloading) hud.prompt(t('reload'));
     else hud.prompt('');
     const showBoard = this.input.down('Tab');
     if (showBoard !== this.boardShown || (showBoard && Math.random() < 0.05)) {
@@ -1029,15 +1043,15 @@ function describeMiss(r) {
   if (H > tol) {
     if (crossing) side = Math.sign(r.h) === Math.sign(r.lat) ? 'ahead' : 'behind';
     else side = r.h > 0 ? 'right' : 'left';
-    parts.push(`${side} by ${H.toFixed(1)} m`);
+    parts.push(t({ ahead: 'ahead', behind: 'behind', left: 'leftBy', right: 'rightBy' }[side], { m: num(H.toFixed(1)) }));
   }
   if (V > tol) {
     vert = r.v > 0 ? 'over' : 'under';
-    parts.push(`${vert} by ${V.toFixed(1)} m`);
+    parts.push(t(vert, { m: num(V.toFixed(1)) }));
   }
-  let text = parts.join(', ');
-  if (!parts.length) text = r.dist > 42 ? 'pattern was on it, but too thin at this range' : 'pattern was on it — unlucky gap';
-  if (r.pelletSpeed < 150 || r.dist > 48) text += ` · at ${r.dist.toFixed(0)} m the pellets are weak`;
+  let text = parts.join(isAr() ? '، ' : ', ');
+  if (!parts.length) text = t(r.dist > 42 ? 'thin' : 'unlucky');
+  if (r.pelletSpeed < 150 || r.dist > 48) text += t('weak', { d: num(r.dist.toFixed(0)) });
   return { text, side, vert };
 }
 
@@ -1048,8 +1062,8 @@ function summaryHtml(me, log, hunt, challengesDone = []) {
   const longest = kills.reduce((m, e) => Math.max(m, e.dist), 0);
   const avg = atBirds.length ? atBirds.reduce((a, e) => a + e.dist, 0) / atBirds.length : 0;
   const pct = log.length ? Math.round((me.hits / log.length) * 100) : 0;
-  const stat = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
-  const bagList = GAME_SPECIES.filter((s) => me.bag[s]).map((s) => `<span class="ar">${SPECIES[s].ar}</span> ${me.bag[s]}`).join(' · ');
+  const stat = (v, l) => `<div class="stat"><b>${num(v)}</b><span>${l}</span></div>`;
+  const bagList = GAME_SPECIES.filter((s) => me.bag[s]).map((s) => `<span class="ar">${SPECIES[s].ar}</span> ${num(me.bag[s])}`).join(' · ');
 
   // advice from the misses
   const misses = atBirds.filter((e) => e.result !== 'kill');
@@ -1060,12 +1074,12 @@ function summaryHtml(me, log, hunt, challengesDone = []) {
   const over = count('vert', 'over');
   const far = atBirds.filter((e) => e.dist > 45).length;
   const tips = [];
-  if (behind >= 2 && behind > ahead * 1.5) tips.push(`Most misses on crossing birds were <b>behind</b> (${behind} of ${behind + ahead}). Swing through the bird and keep the gun moving as you fire — at 30 m a crossing thrush needs about 1.5 m of lead.`);
-  if (ahead >= 2 && ahead > behind * 1.5) tips.push(`You were often <b>ahead</b> of crossing birds (${ahead} times). Give them a little less lead.`);
-  if (under >= 2 && under > over * 1.5) tips.push(`Several shots went <b>under</b> (${under}). Rising birds climb as the shot travels — cover them with the barrels.`);
-  if (over >= 2 && over > under * 1.5) tips.push(`Several shots went <b>over</b> (${over}). Dropping or landing birds need you to stay underneath them.`);
-  if (far >= 2) tips.push(`${far} shots were beyond 45 m, where the pattern is too thin to kill cleanly. Let them come closer.`);
-  if (!tips.length) tips.push(atBirds.length ? 'Good shooting — no clear pattern in your misses.' : 'No shots at birds today. Walk slowly, use the binoculars and the whistle to bring flocks in.');
+  if (behind >= 2 && behind > ahead * 1.5) tips.push(t('tipBehind', { n: num(behind), of: num(behind + ahead) }));
+  if (ahead >= 2 && ahead > behind * 1.5) tips.push(t('tipAhead', { n: num(ahead) }));
+  if (under >= 2 && under > over * 1.5) tips.push(t('tipUnder', { n: num(under) }));
+  if (over >= 2 && over > under * 1.5) tips.push(t('tipOver', { n: num(over) }));
+  if (far >= 2) tips.push(t('tipFar', { n: num(far) }));
+  if (!tips.length) tips.push(t(atBirds.length ? 'tipGood' : 'tipNone'));
 
   const rows = log
     .slice(-24)
@@ -1073,14 +1087,20 @@ function summaryHtml(me, log, hunt, challengesDone = []) {
       const sp = e.spId ? SPECIES[e.spId] : null;
       const hh = Math.floor(e.hour);
       const mm = String(Math.floor((e.hour - hh) * 60)).padStart(2, '0');
-      const res = { kill: 'down', wound: 'hit', miss: 'miss' }[e.result];
-      return `<tr><td>${hh}:${mm}</td><td>${sp ? `<span class="ar">${sp.ar}</span> ${sp.en}` : '—'}</td><td>${e.dist ? e.dist.toFixed(0) + ' m' : ''}</td><td>${e.choke}</td><td class="res-${e.result}">${res}</td><td>${e.result === 'kill' ? e.hits + ' pellets' : e.how || ''}</td></tr>`;
+      const res = t({ kill: 'resDown', wound: 'resHit', miss: 'resMiss' }[e.result]);
+      const bird = sp ? (isAr() ? `<span class="ar">${sp.ar}</span>` : `<span class="ar">${sp.ar}</span> ${sp.en}`) : '—';
+      return `<tr><td>${num(hh)}:${num(mm)}</td><td>${bird}</td><td>${e.dist ? num(e.dist.toFixed(0)) + (isAr() ? ' م' : ' m') : ''}</td><td>${e.choke}</td><td class="res-${e.result}">${res}</td><td>${e.result === 'kill' ? t('pellets', { n: num(e.hits) }) : e.how || ''}</td></tr>`;
     })
     .join('');
-  return `<div class="stats">${stat(bagged, 'birds in the bag')}${stat(me.score, 'score')}${stat(log.length, 'shots')}${stat(pct + '%', 'birds per shot')}${stat(longest ? longest.toFixed(0) + ' m' : '—', 'longest kill')}${stat(avg ? avg.toFixed(0) + ' m' : '—', 'average shot')}</div>
+  const m = isAr() ? ' م' : ' m';
+  return `<div class="stats">${stat(bagged, t('stBag'))}${stat(me.score, t('stScore'))}${stat(log.length, t('stShots'))}${stat(pct + '%', t('stRate'))}${stat(longest ? longest.toFixed(0) + m : '—', t('stLongest'))}${stat(avg ? avg.toFixed(0) + m : '—', t('stAvg'))}</div>
     ${bagList ? `<p>${bagList}</p>` : ''}
-    ${challengesDone.length ? `<div class="advice">Challenges: ${challengesDone.map((id) => { const c = CHALLENGES.find((x) => x.id === id); return `<b>${c.en}</b> <span class="ar">${c.ar}</span>`; }).join(' · ')}</div>` : ''}
+    ${challengesDone.length ? `<div class="advice">${t('challengesDone')}: ${challengesDone.map((id) => { const c = CHALLENGES.find((x) => x.id === id); return isAr() ? `<b>${c.ar}</b>` : `<b>${c.en}</b> <span class="ar">${c.ar}</span>`; }).join(' · ')}</div>` : ''}
     <div class="advice">${tips.join('<br>')}</div>
-    ${rows ? `<table class="shotlog"><tr><th>Time</th><th>Bird</th><th>Range</th><th>Barrel</th><th>Result</th><th>How</th></tr>${rows}</table>` : ''}
-    <p class="dim">${hunt.en} · ${hunt.month}</p>`;
+    ${rows ? `<table class="shotlog"><tr><th>${t('thTime')}</th><th>${t('thBird')}</th><th>${t('thRange')}</th><th>${t('thBarrel')}</th><th>${t('thResult')}</th><th>${t('thHow')}</th></tr>${rows}</table>` : ''}
+    <p class="dim">${isAr() ? `${hunt.ar} · ${hunt.monthAr}` : `${hunt.en} · ${hunt.month}`}</p>`;
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }

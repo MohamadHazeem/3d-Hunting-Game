@@ -1,4 +1,5 @@
 import { SPECIES, GAME_SPECIES } from '../config/species.js';
+import { t, num, isAr } from '../core/i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -53,21 +54,21 @@ export class HUD {
   setAmmo(loaded, reserve, reloading) {
     $('sh0').classList.toggle('empty', !loaded[0]);
     $('sh1').classList.toggle('empty', !loaded[1]);
-    $('reserve').textContent = reloading ? 'reloading…' : `${reserve} shells`;
+    $('reserve').textContent = reloading ? t('reloading') : t('shells', { n: num(reserve) });
   }
 
   setBag(bag, score) {
     const rows = GAME_SPECIES.filter((s) => bag[s] || 0)
-      .map((s) => `<div class="row-b"><span><span class="ar">${SPECIES[s].ar}</span> ${SPECIES[s].en}</span><b>${bag[s]}</b></div>`)
+      .map((s) => `<div class="row-b"><span><span class="ar">${SPECIES[s].ar}</span> ${isAr() ? '' : SPECIES[s].en}</span><b>${num(bag[s])}</b></div>`)
       .join('');
-    $('bag').innerHTML = `<div class="title">Game bag · الجعبة</div>${rows || '<div class="dim" style="color:#b9ae98">empty</div>'}`;
-    $('score').innerHTML = `Score <b style="color:#e2a23b">${score}</b>`;
+    $('bag').innerHTML = `<div class="title">${t('gameBag')}</div>${rows || `<div class="dim" style="color:#b9ae98">${t('empty')}</div>`}`;
+    $('score').innerHTML = `${t('score')} <b style="color:#e2a23b">${num(score)}</b>`;
   }
 
   setClock(hour, hunt) {
     const h = Math.floor(hour);
     const m = Math.floor((hour - h) * 60);
-    $('clock').innerHTML = `<b>${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}</b> · ${hunt.month}<br><span class="ar">${hunt.ar}</span>`;
+    $('clock').innerHTML = `<b>${num(String(h).padStart(2, '0'))}:${num(String(m).padStart(2, '0'))}</b> · ${isAr() ? hunt.monthAr : hunt.month}<br><span class="ar">${hunt.ar}</span>`;
   }
 
   // Wind: an arrow showing where it blows relative to where you face.
@@ -79,11 +80,11 @@ export class HUD {
     if (this.windDeg === deg && this.windS === s) return;
     this.windDeg = deg;
     this.windS = s;
-    el.innerHTML = `<span class="arrow" style="transform:rotate(${deg}deg)">↑</span> wind ${s} m/s`;
+    el.innerHTML = `<span class="arrow" style="transform:rotate(${deg}deg)">↑</span> ${t('windHud', { s: num(s) })}`;
   }
 
   setRoom(code, players) {
-    $('room').innerHTML = code ? `Hunt code <b>${code}</b><br>${players} hunter${players === 1 ? '' : 's'}` : '';
+    $('room').innerHTML = code ? `${t('huntCode')} <b>${code}</b><br>${t('hunters', { n: num(players) })}` : '';
   }
 
   prompt(html) {
@@ -169,14 +170,14 @@ export class HUD {
       )
       .join('');
     const species = Object.keys(hunt.species)
-      .map((s) => `<span class="ar" style="margin:0">${SPECIES[s].ar}</span> ${SPECIES[s].en} — ${SPECIES[s].note}`)
+      .map((s) => (isAr() ? `<span class="ar" style="margin:0">${SPECIES[s].ar}</span> — ${SPECIES[s].noteAr}` : `<span class="ar" style="margin:0">${SPECIES[s].ar}</span> ${SPECIES[s].en} — ${SPECIES[s].note}`))
       .join('<br>');
     const log = shots
       .slice()
       .reverse()
-      .map((e) => `<div>${e.spId ? `<span class="ar" style="margin:0">${SPECIES[e.spId].ar}</span> ${e.dist.toFixed(0)} m — ` : ''}${e.result === 'kill' ? `down (${e.hits} pellets)` : e.how || 'no bird near the line'}</div>`)
+      .map((e) => `<div>${e.spId ? `<span class="ar" style="margin:0">${SPECIES[e.spId].ar}</span> ${num(e.dist.toFixed(0))} ${isAr() ? 'م' : 'm'} — ` : ''}${e.result === 'kill' ? t('sbDown', { n: num(e.hits) }) : e.how || t('sbNoBird')}</div>`)
       .join('');
-    el.innerHTML = `<table><tr><th>Hunter</th>${head}<th>Hits/Shots</th><th>Score</th></tr>${body}</table>${log ? `<div class="note"><b>Your last shots</b>${log}</div>` : ''}<div class="note">${species}</div>`;
+    el.innerHTML = `<table><tr><th>${t('sbHunter')}</th>${head}<th>${t('sbHits')}</th><th>${t('sbScore')}</th></tr>${body}</table>${log ? `<div class="note"><b>${t('sbLast')}</b>${log}</div>` : ''}<div class="note">${species}</div>`;
   }
 
   pause(show, info = '') {

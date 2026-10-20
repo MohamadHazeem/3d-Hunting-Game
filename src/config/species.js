@@ -5,6 +5,7 @@
 export const SPECIES = {
   quail: {
     id: 'quail',
+    noteAr: 'مهاجر بالخريف (أيلول–تشرين). بيتخبّى بالحصيدة والحشيش اليابس، بيطلع من تحت إجريك وبيطير واطي ودغري.',
     ar: 'فري',
     en: 'Common Quail',
     latin: 'Coturnix coturnix',
@@ -32,6 +33,7 @@ export const SPECIES = {
   },
   woodcock: {
     id: 'woodcock',
+    noteAr: 'زاير بالشتي (تشرين التاني–كانون التاني). بيقعد ساكت بأرض حرش السنديان، بيطلع متأخر وبيلفّ بين الشجر. هو الطير الغالي.',
     ar: 'شكب',
     en: 'Eurasian Woodcock',
     latin: 'Scolopax rusticola',
@@ -58,6 +60,7 @@ export const SPECIES = {
   },
   songThrush: {
     id: 'songThrush',
+    noteAr: 'بيمرق بالكميّات عالضو بتشرين الأول والتاني، بيطير بين كروم الزيتون وبينزل عالشجر ليتغدّى.',
     ar: 'سمن',
     en: 'Song Thrush',
     latin: 'Turdus philomelos',
@@ -86,6 +89,7 @@ export const SPECIES = {
   },
   fieldfare: {
     id: 'fieldfare',
+    noteAr: 'سمن الشتي الكبير بجرود اللزّاب (كانون الأول–كانون التاني). بيمشي بسروب صوتها عالي: «تشاك تشاك».',
     ar: 'كيخن',
     en: 'Fieldfare / Mistle Thrush',
     latin: 'Turdus pilaris',
@@ -113,6 +117,7 @@ export const SPECIES = {
   },
   chaffinch: {
     id: 'chaffinch',
+    noteAr: 'مقيم، وبيجي منه سروب كبيرة من أوروبا بالخريف. طيرانه متل الموج، عجوانحه خطوط بيض، وصوته «بينك بينك».',
     ar: 'صلنج',
     en: 'Common Chaffinch',
     latin: 'Fringilla coelebs',
@@ -140,6 +145,7 @@ export const SPECIES = {
   },
   turtleDove: {
     id: 'turtleDove',
+    noteAr: 'مهاجر آخر الصيف (آب–أيلول). يمام صغير وسريع، بيمرق بمجموعات صغيرة فوق البقاع والساحل. عدده عم يقلّ — خفّف منه.',
     ar: 'ترغل',
     en: 'European Turtle Dove',
     latin: 'Streptopelia turtur',
@@ -167,6 +173,7 @@ export const SPECIES = {
   },
   woodpigeon: {
     id: 'woodpigeon',
+    noteAr: 'زاير بالشتي لأحراج السنديان والصنوبر. كبير وتقيل وقلبه قوي: بيطلع من الشجرة بضجّة جوانح وطيرانه قوي ودغري.',
     ar: 'مطوق',
     en: 'Common Woodpigeon',
     latin: 'Columba palumbus',
@@ -194,6 +201,7 @@ export const SPECIES = {
   },
   stork: {
     id: 'stork',
+    noteAr: 'محمي. بيمرق فوق لبنان بسروب ضخمة عم تحوّم. ممنوع تقوّص عليه — الصيّاد الحقيقي بيعرف طيوره.',
     ar: 'لقلق أبيض',
     en: 'White Stork (protected)',
     latin: 'Ciconia ciconia',

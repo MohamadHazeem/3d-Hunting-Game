@@ -14,49 +14,50 @@
     <!-- Main menu -->
     <div id="menu" class="overlay">
       <div class="menu-inner">
+        <div class="lang-switch"><button data-lang="en">English</button><button data-lang="ar">العربية</button></div>
         <header class="brand">
           <div class="brand-ar">صيد لبنان</div>
           <div class="brand-en">LEBANON HUNT <span>3D</span></div>
-          <div class="brand-sub">Quail · Thrush · Woodcock · Chaffinch · Fieldfare · Turtle dove · Woodpigeon — on the terraces, fields and woods of Lebanon</div>
+          <div class="brand-sub" data-i18n="brandSub">Quail · Thrush · Woodcock · Chaffinch · Fieldfare · Turtle dove · Woodpigeon — on the terraces, fields and woods of Lebanon</div>
         </header>
 
         <section>
-          <h3>Choose your hunting ground <span class="ar">اختار مكان الصيد</span></h3>
+          <h3 data-i18n="choose">Choose your hunting ground <span class="ar">اختار مكان الصيد</span></h3>
           <div id="hunts" class="hunts"></div>
         </section>
 
         <section class="row">
           <div class="panel">
-            <h3>Hunter <span class="ar">الصياد</span></h3>
-            <label>Name <input id="name" maxlength="16" placeholder="Abu Ali" /></label>
-            <label class="check">Bring my pointer <span class="ar">خود الكلب</span> <input data-setting="dog" type="checkbox" /></label>
-            <button id="btnSettings">Settings <span class="ar">الإعدادات</span></button>
-            <button id="btnGuide">Bird guide <span class="ar">دليل الطيور</span></button>
-            <p class="tip">Graphics, mouse, sound and aiming help are in Settings. They are saved for next time.</p>
+            <h3 data-i18n="hunter">Hunter <span class="ar">الصياد</span></h3>
+            <label><span data-i18n="name">Name</span> <input id="name" maxlength="16" placeholder="Abu Ali" data-i18n-ph="namePh" /></label>
+            <label class="check"><span data-i18n="dog">Bring my pointer <span class="ar">خود الكلب</span></span> <input data-setting="dog" type="checkbox" /></label>
+            <button id="btnSettings" data-i18n="settings">Settings <span class="ar">الإعدادات</span></button>
+            <button id="btnGuide" data-i18n="guide">Bird guide <span class="ar">دليل الطيور</span></button>
+            <p class="tip" data-i18n="menuTip">Graphics, mouse, sound and aiming help are in Settings. They are saved for next time.</p>
           </div>
           <div class="panel">
-            <h3>Play <span class="ar">العب</span></h3>
-            <button id="btnSolo" class="primary">Hunt solo <span class="ar">لوحدك</span></button>
-            <button id="btnHost">Host a hunt with friends <span class="ar">ادعِ رفقاتك</span></button>
+            <h3 data-i18n="play">Play <span class="ar">العب</span></h3>
+            <button id="btnSolo" class="primary" data-i18n="solo">Hunt solo <span class="ar">لوحدك</span></button>
+            <button id="btnHost" data-i18n="host">Host a hunt with friends <span class="ar">ادعِ رفقاتك</span></button>
             <div class="join">
-              <input id="joinCode" maxlength="5" placeholder="CODE" />
-              <button id="btnJoin">Join <span class="ar">انضم</span></button>
+              <input id="joinCode" maxlength="5" placeholder="CODE" data-i18n-ph="codePh" />
+              <button id="btnJoin" data-i18n="join">Join <span class="ar">انضم</span></button>
             </div>
             <div id="netStatus" class="status"></div>
           </div>
           <div class="panel help">
-            <h3>Controls</h3>
-            <div class="keys">
+            <h3 data-i18n="controls">Controls</h3>
+            <div class="keys" data-i18n="keys">
               <b>WASD</b> walk · <b>Shift</b> run · <b>C</b> crouch · <b>Space</b> jump<br />
               <b>Right mouse</b> mount gun · <b>Left mouse</b> fire<br />
               <b>R</b> reload · <b>E</b> pick up bird · <b>B</b> binoculars<br />
               <b>Q</b> whistle (call thrush/finch) · <b>F</b> dog · <b>M</b> map · <b>Tab</b> bag &amp; scores · <b>Enter</b> chat
             </div>
-            <p class="tip">Lead crossing birds — shot takes time to arrive. Effective range is about 35 m. Never shoot storks: they are protected. Try your pattern on the practice boards next to where you start.</p>
+            <p class="tip" data-i18n="playTip">Lead crossing birds — shot takes time to arrive. Effective range is about 35 m. Never shoot storks: they are protected. Try your pattern on the practice boards next to where you start.</p>
           </div>
         </section>
         <section class="panel challenges-panel">
-          <h3>Challenges <span class="ar">تحديات</span></h3>
+          <h3 data-i18n="challenges">Challenges <span class="ar">تحديات</span></h3>
           <div id="challenges" class="challenges"></div>
         </section>
       </div>
@@ -66,7 +67,7 @@
     <div id="loading" class="overlay hidden">
       <div class="loading-box">
         <div class="brand-ar small">صيد لبنان</div>
-        <div id="loadText">Preparing the hunting ground…</div>
+        <div id="loadText" data-i18n="preparing">Preparing the hunting ground…</div>
         <div class="bar"><div id="loadBar"></div></div>
       </div>
     </div>
@@ -91,17 +92,17 @@
       <div id="bag"></div>
       <div id="score"></div>
       <div id="scoreboard" class="hidden"></div>
-      <div id="map" class="hidden"><canvas></canvas><div class="map-key"><b>M</b> close · <span style="color:#e2a23b">●</span> your birds · <span style="color:#8fc0ff">●</span> friends · <span style="color:#e2a23b">—</span> your route · ▪ practice boards</div></div>
-      <div id="chat"><div id="chatLog"></div><input id="chatInput" class="hidden" maxlength="120" placeholder="Say something…" /></div>
+      <div id="map" class="hidden"><canvas></canvas><div class="map-key" data-i18n="mapKey"><b>M</b> close · <span style="color:#e2a23b">●</span> your birds · <span style="color:#8fc0ff">●</span> friends · <span style="color:#e2a23b">—</span> your route · ▪ practice boards</div></div>
+      <div id="chat"><div id="chatLog"></div><input id="chatInput" class="hidden" maxlength="120" placeholder="Say something…" data-i18n-ph="chatPh" /></div>
       <div id="pause" class="hidden">
         <div class="pause-box">
           <div class="brand-ar small">صيد لبنان</div>
-          <p>Click to continue hunting</p>
+          <p data-i18n="pauseContinue">Click to continue hunting</p>
           <p class="dim" id="pauseInfo"></p>
           <div class="pause-btns">
-            <button id="btnPauseSettings">Settings</button>
-            <button id="btnPauseGuide">Bird guide</button>
-            <button id="btnQuit">End the hunt</button>
+            <button id="btnPauseSettings" data-i18n="settings">Settings</button>
+            <button id="btnPauseGuide" data-i18n="guide">Bird guide</button>
+            <button id="btnQuit" data-i18n="endHunt">End the hunt</button>
           </div>
         </div>
       </div>
@@ -111,48 +112,48 @@
     <div id="settings" class="overlay hidden">
       <div class="settings-box">
         <div class="settings-head">
-          <h3>Settings <span class="ar">الإعدادات</span></h3>
+          <h3 data-i18n="settings">Settings <span class="ar">الإعدادات</span></h3>
           <button id="btnSettingsClose" class="close" aria-label="Close settings">✕</button>
         </div>
         <div class="tabs" role="tablist">
-          <button class="tab-btn sel" data-tab="controls">Controls</button>
-          <button class="tab-btn" data-tab="gun">Gun</button>
-          <button class="tab-btn" data-tab="graphics">Graphics</button>
-          <button class="tab-btn" data-tab="sound">Sound</button>
-          <button class="tab-btn" data-tab="assists">Aiming help</button>
+          <button class="tab-btn sel" data-tab="controls" data-i18n="tabControls">Controls</button>
+          <button class="tab-btn" data-tab="gun" data-i18n="tabGun">Gun</button>
+          <button class="tab-btn" data-tab="graphics" data-i18n="tabGraphics">Graphics</button>
+          <button class="tab-btn" data-tab="sound" data-i18n="tabSound">Sound</button>
+          <button class="tab-btn" data-tab="assists" data-i18n="tabAssists">Aiming help</button>
         </div>
         <div class="tab" data-tab="controls">
-          <label>Mouse sensitivity <span><input data-setting="sens" type="range" min="0.3" max="2.5" step="0.05" /><output></output></span></label>
-          <label>Sensitivity with the gun mounted <span><input data-setting="adsSens" type="range" min="0.4" max="1.2" step="0.05" /><output></output></span></label>
-          <label>Field of view <span><input data-setting="fov" data-unit="°" type="range" min="60" max="95" step="1" /><output></output></span></label>
-          <label>Invert mouse up/down <input data-setting="invertY" type="checkbox" /></label>
-          <div class="keys small">
+          <label><span data-i18n="sens">Mouse sensitivity</span> <span><input data-setting="sens" type="range" min="0.3" max="2.5" step="0.05" /><output></output></span></label>
+          <label><span data-i18n="adsSens">Sensitivity with the gun mounted</span> <span><input data-setting="adsSens" type="range" min="0.4" max="1.2" step="0.05" /><output></output></span></label>
+          <label><span data-i18n="fov">Field of view</span> <span><input data-setting="fov" data-unit="°" type="range" min="60" max="95" step="1" /><output></output></span></label>
+          <label><span data-i18n="invertY">Invert mouse up/down</span> <input data-setting="invertY" type="checkbox" /></label>
+          <div class="keys small" data-i18n="keysSmall">
             <b>WASD</b> walk · <b>Shift</b> run · <b>C</b> crouch · <b>Space</b> jump · <b>Right mouse</b> mount gun · <b>Left mouse</b> fire ·
             <b>R</b> reload · <b>E</b> pick up · <b>B</b> binoculars · <b>Q</b> whistle · <b>F</b> dog: heel / hunt / send in · <b>M</b> map · <b>Tab</b> bag &amp; shot log · <b>Enter</b> chat · <b>Esc</b> pause
           </div>
         </div>
         <div class="tab hidden" data-tab="gun">
-          <label>First barrel choke (lower)
+          <label><span data-i18n="choke0">First barrel choke (lower)</span>
             <select data-setting="choke0">
               <option value="CYL">Cylinder</option><option value="IC">Improved Cylinder</option><option value="M">Modified</option><option value="IM">Improved Modified</option><option value="F">Full</option>
             </select>
           </label>
-          <label>Second barrel choke (upper)
+          <label><span data-i18n="choke1">Second barrel choke (upper)</span>
             <select data-setting="choke1">
               <option value="CYL">Cylinder</option><option value="IC">Improved Cylinder</option><option value="M">Modified</option><option value="IM">Improved Modified</option><option value="F">Full</option>
             </select>
           </label>
-          <label>Cartridges
+          <label><span data-i18n="cartridges">Cartridges</span>
             <select data-setting="shotSize">
               <option value="7.5">#7½ — fewer, harder-hitting pellets (woodpigeon, long shots)</option>
               <option value="8">#8 — the all-rounder (thrush, quail, dove)</option>
               <option value="9">#9 — many small pellets (close quail and woodcock)</option>
             </select>
           </label>
-          <p class="dim">Open chokes spread wide for close birds; tight chokes hold the pattern together further out. Try them on the practice boards. Changes apply on your next hunt.</p>
+          <p class="dim" data-i18n="gunTip">Open chokes spread wide for close birds; tight chokes hold the pattern together further out. Try them on the practice boards. Changes apply on your next hunt.</p>
         </div>
         <div class="tab hidden" data-tab="graphics">
-          <label>Quality
+          <label><span data-i18n="quality">Quality</span>
             <select id="quality" data-setting="quality">
               <option value="auto">Auto (picks for your graphics card)</option>
               <option value="low">Low (laptops)</option>
@@ -161,10 +162,10 @@
               <option value="ultra">Ultra (strong graphics card)</option>
             </select>
           </label>
-          <p class="dim">Quality changes take effect on your next hunt.</p>
-          <label>Render scale
+          <p class="dim" data-i18n="qualityTip">Quality changes take effect on your next hunt.</p>
+          <label><span data-i18n="renderScale">Render scale</span>
             <select id="renderScale">
-              <option value="">Dynamic (holds the frame rate)</option>
+              <option value="" data-i18n-opt="opt.rsDyn">Dynamic (holds the frame rate)</option>
               <option value="1">100%</option>
               <option value="0.85">85%</option>
               <option value="0.75">75%</option>
@@ -172,24 +173,24 @@
             </select>
           </label>
           <p class="dim" id="gfxInfo"></p>
-          <label>Show frame rate <input data-setting="showFps" type="checkbox" /></label>
+          <label><span data-i18n="showFps">Show frame rate</span> <input data-setting="showFps" type="checkbox" /></label>
         </div>
         <div class="tab hidden" data-tab="sound">
-          <label>Master <span><input data-volume="master" type="range" min="0" max="1" step="0.01" /><output></output></span></label>
-          <label>Gun, steps &amp; wings <span><input data-volume="effects" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
-          <label>Bird calls <span><input data-volume="birds" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
-          <label>Ambience <span><input data-volume="ambience" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
-          <label>Voices <span><input data-volume="voice" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
-          <label>Music <span><input data-volume="music" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
-          <label>Abu Ali, your hunting companion, calls the birds (Arabic) <input data-setting="companion" type="checkbox" /></label>
-          <p class="dim">Headphones are best: you can tell where a calling flock is by ear.</p>
+          <label><span data-i18n="volMaster">Master</span> <span><input data-volume="master" type="range" min="0" max="1" step="0.01" /><output></output></span></label>
+          <label><span data-i18n="volEffects">Gun, steps &amp; wings</span> <span><input data-volume="effects" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
+          <label><span data-i18n="volBirds">Bird calls</span> <span><input data-volume="birds" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
+          <label><span data-i18n="volAmbience">Ambience</span> <span><input data-volume="ambience" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
+          <label><span data-i18n="volVoice">Voices</span> <span><input data-volume="voice" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
+          <label><span data-i18n="volMusic">Music</span> <span><input data-volume="music" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
+          <label><span data-i18n="companion">Abu Ali, your hunting companion, calls the birds (Arabic)</span> <input data-setting="companion" type="checkbox" /></label>
+          <p class="dim" data-i18n="soundTip">Headphones are best: you can tell where a calling flock is by ear.</p>
         </div>
         <div class="tab hidden" data-tab="assists">
-          <label>Aiming dot <input data-setting="crosshair" type="checkbox" /></label>
-          <label>Hit marker <input data-setting="hitMarker" type="checkbox" /></label>
-          <label>Tell me how I missed (behind, ahead, over, under) <input data-setting="shotFeedback" type="checkbox" /></label>
-          <label>Show downed birds on the compass <input data-setting="markers" type="checkbox" /></label>
-          <p class="dim">Turn these off for a more realistic hunt.</p>
+          <label><span data-i18n="crosshair">Aiming dot</span> <input data-setting="crosshair" type="checkbox" /></label>
+          <label><span data-i18n="hitMarker">Hit marker</span> <input data-setting="hitMarker" type="checkbox" /></label>
+          <label><span data-i18n="shotFeedback">Tell me how I missed (behind, ahead, over, under)</span> <input data-setting="shotFeedback" type="checkbox" /></label>
+          <label><span data-i18n="markers">Show downed birds on the compass</span> <input data-setting="markers" type="checkbox" /></label>
+          <p class="dim" data-i18n="assistTip">Turn these off for a more realistic hunt.</p>
         </div>
       </div>
     </div>
@@ -198,10 +199,10 @@
     <div id="guide" class="overlay hidden">
       <div class="guide-box">
         <div class="settings-head">
-          <h3>Bird guide <span class="ar">دليل الطيور</span></h3>
+          <h3 data-i18n="guide">Bird guide <span class="ar">دليل الطيور</span></h3>
           <button id="btnGuideClose" class="close" aria-label="Close the bird guide">✕</button>
         </div>
-        <p class="dim">Lebanese hunters' names for each bird. Names vary by village — this is how they are said in most of Lebanon.</p>
+        <p class="dim" data-i18n="guideTip">Lebanese hunters' names for each bird. Names vary by village — this is how they are said in most of Lebanon.</p>
         <div class="guide-cards"></div>
       </div>
     </div>
@@ -210,9 +211,9 @@
     <div id="summary" class="overlay hidden">
       <div class="summary-box">
         <div class="brand-ar small">صيد لبنان</div>
-        <h3>End of the hunt <span class="ar">آخر النهار</span></h3>
+        <h3 data-i18n="endOfHunt">End of the hunt <span class="ar">آخر النهار</span></h3>
         <div id="summaryBody"></div>
-        <button id="btnSummaryDone" class="primary">Back to the menu</button>
+        <button id="btnSummaryDone" class="primary" data-i18n="backToMenu">Back to the menu</button>
       </div>
     </div>
 
