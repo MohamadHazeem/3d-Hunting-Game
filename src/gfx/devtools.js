@@ -38,8 +38,16 @@ window.__start = (huntIdx = 0, quality = 'medium', hour = 8.5) => {
 // The real cost of a frame, measured synchronously: run the game's frame()
 // and wait for the GPU with a 1-pixel readPixels. Works even when the page is
 // in the background and requestAnimationFrame is paused.
-window.__bench = (n = 60) => {
+window.__bench = (n = 60, scale = 1) => {
   const g = window.__game;
+  // hold the render scale still while measuring (dynamic resolution would
+  // otherwise react to the back-to-back frames)
+  const gs = window.__gfxSettings;
+  const saved = gs ? gs.renderScale : null;
+  if (gs && g.gfx) {
+    gs.renderScale = scale;
+    g.gfx.applyRenderScale();
+  }
   const gl = g.renderer.getContext();
   const px = new Uint8Array(4);
   const t = [];
@@ -53,6 +61,7 @@ window.__bench = (n = 60) => {
     t.push(performance.now() - a);
   }
   info.autoReset = true;
+  if (gs) gs.renderScale = saved;
   t.sort((a, b) => a - b);
   const med = t[n >> 1];
   const r = info.render;

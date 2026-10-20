@@ -235,6 +235,8 @@ export class Atmosphere {
     this.hemi.color.setRGB(0.62, 0.74, 0.95).lerp(_c.setRGB(0.9, 0.7, 0.6), warm * 0.5);
 
     this.updateShadows(camera, playerPos);
+    const structures = this.scene.userData.structures;
+    if (structures) structures.update(elev);
 
     // fog colour ~ horizon colour
     const day = new THREE.Color(0.66, 0.74, 0.82);
@@ -242,7 +244,8 @@ export class Atmosphere {
     const dusk = new THREE.Color(0.12, 0.13, 0.18);
     const fogC = day.clone().lerp(dawn, warm * 0.75).lerp(dusk, night);
     this.scene.fog.color.copy(fogC);
-    this.renderer.toneMappingExposure = 0.55 + 0.1 * smoothstep(0, 30, elev);
+    // eyes adapt: open up a little in the low light of dawn and dusk
+    this.renderer.toneMappingExposure = 0.6 + 0.1 * smoothstep(0, 30, elev) + 0.12 * (1 - smoothstep(2, 14, elev)) * (1 - night);
 
     // sun glow in the haze, valley mist
     const daylight = smoothstep(-3, 6, elev);

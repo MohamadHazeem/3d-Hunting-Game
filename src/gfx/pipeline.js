@@ -5,14 +5,14 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { tierSettings, gfxSettings, registerPipeline } from './quality.js';
+import { tierSettings, gfxSettings, registerPipeline, getQualityInfo } from './quality.js';
 import { look, GradeShader } from './look.js';
 import { SceneLife } from './life.js';
 
 // Ambient occlusion from the scene's own depth buffer (so alpha-tested leaves
 // occlude correctly), optionally at half resolution.
 class SceneAO extends GTAOPass {
-  constructor(scene, camera, w, h, half) {
+  constructor(scene, camera, w, h, half, samples = 8) {
     super(scene, camera, w, h);
     this.half = half;
     // Only near the hunter: far away the depth buffer is too coarse to rebuild
@@ -26,8 +26,8 @@ class SceneAO extends GTAOPass {
       .replace('ao = pow(ao, scale);', 'ao = pow(ao, scale);\n\t\t\tao = mix(ao, 1.0, smoothstep(90.0, 160.0, -viewPos.z));');
     this.gtaoMaterial.fragmentShader = fs;
     this.gtaoMaterial.needsUpdate = true;
-    this.updateGtaoMaterial({ radius: 1.4, distanceExponent: 1.6, thickness: 2.5, distanceFallOff: 1, scale: 1, samples: half ? 8 : 12 });
-    this.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: half ? 8 : 12 });
+    this.updateGtaoMaterial({ radius: 1.4, distanceExponent: 1.6, thickness: 2.5, distanceFallOff: 1, scale: 1, samples });
+    this.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: Math.min(12, samples) });
     this.blendIntensity = 0.75;
   }
 
@@ -71,6 +71,11 @@ export class GfxPipeline {
     this.applied = this.scale;
     if (this.T.post) this.buildComposer();
     registerPipeline(this);
+    if (import.meta.env.DEV) {
+      // for src/gfx/devtools.js and console poking
+      window.__gfxSettings = gfxSettings;
+      window.__qualityInfo = getQualityInfo;
+    }
   }
 
   buildComposer() {
@@ -85,7 +90,7 @@ export class GfxPipeline {
     const composer = new EffectComposer(r, rt);
     composer.addPass(new RenderPass(this.scene, this.camera));
     if (T.ao) {
-      this.ao = new SceneAO(this.scene, this.camera, this.cssW * pr, this.cssH * pr, T.ao === 'half');
+      this.ao = new SceneAO(this.scene, this.camera, this.cssW * pr, this.cssH * pr, T.ao === 'half', T.aoSamples);
       composer.addPass(this.ao);
     }
     if (T.bloom) {

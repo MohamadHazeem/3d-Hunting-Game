@@ -34,13 +34,13 @@ export const TIERS = {
   },
   high: {
     pixelRatio: 2, minScale: 0.5,
-    post: true, msaa: 4, bloom: true, ao: 'half', grade: true,
+    post: true, msaa: 4, bloom: true, ao: 'half', aoSamples: 8, grade: true,
     shadows: true, shadowMap: 4096, shadowExt: 70, farShadowMap: 4096,
     detail: 1, mist: true, leaves: true,
   },
   ultra: {
     pixelRatio: 2, minScale: 0.5,
-    post: true, msaa: 4, bloom: true, ao: 'full', grade: true,
+    post: true, msaa: 4, bloom: true, ao: 'half', aoSamples: 14, grade: true,
     shadows: true, shadowMap: 4096, shadowExt: 95, farShadowMap: 4096,
     detail: 1.25, mist: true, leaves: true,
   },
