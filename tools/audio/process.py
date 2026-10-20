@@ -150,8 +150,9 @@ def main():
         "shotFar": ["shot_far_1", "shot_far_2"],
         "breakOpen": ["gun_open"], "breakClose": ["gun_close"], "shellOut": ["shell_eject"],
         "shellIn": ["shell_insert_1", "shell_insert_2"], "dry": ["dry_fire"], "shellDrop": ["shell_drop"],
-        "whirr": ["flush_quail_2", "flush_quail_1"], "clatter": ["flush_woodcock"], "flap": ["flock_takeoff"],
-        "wingPass": ["wing_pass"], "hit": ["bird_thud"], "pickup": ["pickup"], "cloth": ["cloth"],
+        "whirr": ["flush_quail_2", "flush_quail_1"], "clatter": ["flush_woodcock"], "flockFlush": ["flock_takeoff"],
+        "flap": ["flap_2"], "land": ["land_1", "land_2"], "flutter": ["flutter_2"], "run": ["run_1"],
+        "wingPass": ["wing_pass"], "thud": ["bird_thud"], "pickup": ["pickup"], "cloth": ["cloth"], "whistle": ["whistle_2"],
         "farSheep": ["far_sheep"], "farBell": ["far_church_bell"], "farDog": ["far_dog"], "farRooster": ["far_rooster"],
     }
     for name, files in ONE.items():

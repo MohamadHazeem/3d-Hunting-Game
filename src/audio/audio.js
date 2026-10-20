@@ -185,7 +185,7 @@ const ROUTING = {
   shot: ['effects', 10], shotEcho: ['effects', 7], shotFar: ['ambience', 5],
   dry: ['effects', 6], breakOpen: ['effects', 6], breakClose: ['effects', 6], shellIn: ['effects', 6], shellOut: ['effects', 6], shellDrop: ['effects', 3],
   whirr: ['effects', 8], clatter: ['effects', 8], flap: ['effects', 5], flutter: ['effects', 5], wingPass: ['effects', 4], wingClap: ['effects', 4],
-  land: ['effects', 4], hit: ['effects', 5], hitConfirm: ['effects', 6], pickup: ['effects', 6], cloth: ['effects', 3], whistle: ['effects', 6],
+  land: ['effects', 3], hit: ['effects', 5], thud: ['effects', 4], flockFlush: ['effects', 6], run: ['effects', 3], hitConfirm: ['effects', 6], pickup: ['effects', 6], cloth: ['effects', 3], whistle: ['effects', 6],
   step: ['effects', 4], stepLeaves: ['effects', 4], stepGravel: ['effects', 4], stepStone: ['effects', 4], stepSnow: ['effects', 4],
   quail: ['birds', 4], tsip: ['birds', 3], chack: ['birds', 3], pink: ['birds', 3], woodcock: ['birds', 3], rattle: ['birds', 3],
   songThrush: ['birds', 2], songChaffinch: ['birds', 2],
@@ -194,7 +194,7 @@ const ROUTING = {
 
 // When a sound has no sample or synth of its own, use another one.
 const ALIASES = {
-  shotEcho: 'shot', shotFar: 'shot', flutter: 'wingPass', wingPass: 'flap', wingClap: 'flap', land: 'hit',
+  shotEcho: 'shot', shotFar: 'shot', flutter: 'wingPass', wingPass: 'flap', wingClap: 'flap', thud: 'hit', flockFlush: 'flap',
   stepGravel: 'step', stepStone: 'step', stepSnow: 'step', rattle: 'chack', shellDrop: 'shellIn',
 };
 

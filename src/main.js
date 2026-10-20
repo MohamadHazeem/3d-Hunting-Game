@@ -439,7 +439,7 @@ class Game {
       net.on('pickup', (m, from) => this.doPickup(m.bird, from));
       net.on('whistle', (m, from) => {
         const pos = new THREE.Vector3(...m.p);
-        audio.play('whistle', pos, { gain: 0.9, ref: 6 });
+        audio.play('whistle', pos, { gain: 0.9, ref: 6, rate: 1.8 });
         this.birds.whistle(pos);
         net.broadcast(m, from);
       });
@@ -473,7 +473,7 @@ class Game {
         }
         this.updateHudStats();
       });
-      net.on('whistle', (m) => audio.play('whistle', new THREE.Vector3(...m.p), { gain: 0.9, ref: 6 }));
+      net.on('whistle', (m) => audio.play('whistle', new THREE.Vector3(...m.p), { gain: 0.9, ref: 6, rate: 1.8 }));
       net.on('chat', (m) => this.hud.chat(m.from, m.text));
       net.on('hour', (m) => (this.atmo.hour = m.hour));
       net.on('hostLost', () => {
@@ -685,7 +685,7 @@ class Game {
     if (this.whistleCD > 0) return;
     this.whistleCD = 3;
     const pos = this.player.camera.position.clone();
-    audio.play('whistle', null, { gain: 0.5 });
+    audio.play('whistle', null, { gain: 0.5, rate: 1.8 });
     if (this.authority) {
       const n = this.birds.whistle(pos);
       if (n) this.hud.message('A flock turns towards your whistle…', 'info');
