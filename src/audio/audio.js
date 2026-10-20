@@ -213,6 +213,7 @@ const ROUTING = {
   step: ['effects', 4], stepLeaves: ['effects', 4], stepGravel: ['effects', 4], stepStone: ['effects', 4], stepSnow: ['effects', 4],
   quail: ['birds', 4], tsip: ['birds', 3], chack: ['birds', 3], pink: ['birds', 3], woodcock: ['birds', 3], rattle: ['birds', 3],
   songThrush: ['birds', 2], songChaffinch: ['birds', 2], purr: ['birds', 3], coo: ['birds', 3],
+  dogWhistle: ['effects', 6], dogShake: ['effects', 3],
   farSheep: ['ambience', 1], farBell: ['ambience', 1], farDog: ['ambience', 1], farRooster: ['ambience', 1],
 };
 
@@ -540,6 +541,45 @@ export class AudioSystem {
     src.start(t);
     this.voices.push({ src, prio, start: t, end: t + buf.duration / rate });
     return src;
+  }
+
+  // A looping 3D sound you can move and fade (the dog's bell, its panting).
+  // Returns null until the sample has loaded; call again later.
+  startLoop(name, opts = {}) {
+    if (!this.ctx) return null;
+    const list = this.samples[name];
+    if (!list || !list.length) return null;
+    const ctx = this.ctx;
+    const buf = list[0];
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    const pan = ctx.createPanner();
+    pan.panningModel = 'HRTF';
+    pan.distanceModel = 'inverse';
+    pan.refDistance = opts.ref || 4;
+    pan.rolloffFactor = 1;
+    src.connect(pan).connect(g).connect(this.buses[opts.bus || 'effects']);
+    src.start(0, Math.random() * buf.duration);
+    return {
+      set: (pos, gain) => {
+        const t = ctx.currentTime;
+        if (pan.positionX) {
+          pan.positionX.setTargetAtTime(pos.x, t, 0.05);
+          pan.positionY.setTargetAtTime(pos.y + 0.6, t, 0.05);
+          pan.positionZ.setTargetAtTime(pos.z, t, 0.05);
+        } else pan.setPosition(pos.x, pos.y + 0.6, pos.z);
+        g.gain.setTargetAtTime(gain, t, 0.08);
+      },
+      stop: () => {
+        try {
+          src.stop();
+        } catch {}
+        g.disconnect();
+      },
+    };
   }
 
   // ------------------------------------------------ gunshots & echoes

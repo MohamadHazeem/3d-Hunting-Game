@@ -153,7 +153,7 @@ def main():
         "whirr": ["flush_quail_2", "flush_quail_1"], "clatter": ["flush_woodcock"], "flockFlush": ["flock_takeoff"],
         "flap": ["flap_2"], "land": ["land_1", "land_2"], "flutter": ["flutter_2"], "run": ["run_1"],
         "wingPass": ["wing_pass"], "thud": ["bird_thud"], "pickup": ["pickup"], "cloth": ["cloth"], "whistle": ["whistle_2"],
-        "wingClap": ["wing_clap_1", "wing_clap_2"],
+        "wingClap": ["wing_clap_1", "wing_clap_2"], "dogWhistle": ["dog_whistle"], "dogShake": ["dog_shake"],
         "farSheep": ["far_sheep"], "farBell": ["far_church_bell"], "farDog": ["far_dog"], "farRooster": ["far_rooster"],
     }
     for name, files in ONE.items():
@@ -179,6 +179,18 @@ def main():
         steps = slice_events(x, ev, pad=0.015, max_len=0.42, keep=8)
         for i, s in enumerate(steps):
             add(name, peak_norm(s, -3), f"{f}_{i + 1}.mp3")
+
+    # -------- short mono loops that follow something around (the dog)
+    for name, f in {"dogBell": "dog_bell", "dogPant": "dog_pant"}.items():
+        p = os.path.join(el, f + ".mp3")
+        if not os.path.exists(p):
+            continue
+        x = load(p)[: -int(0.08 * SR)]
+        cf = int(0.4 * SR)
+        y = x[:-cf].copy()
+        k = np.linspace(0, 1, cf)
+        y[:cf] = x[:cf] * np.sqrt(k) + x[-cf:] * np.sqrt(1 - k)
+        add(name, rms_norm(y, -20), f + ".mp3")
 
     # -------- ambience beds: seamless loops, matched loudness
     BEDS = {"dawn": "amb_dawn", "cicadas": "amb_cicadas", "crickets": "amb_crickets",

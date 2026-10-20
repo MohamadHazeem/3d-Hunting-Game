@@ -13,6 +13,7 @@ const DEFAULTS = {
   hitMarker: true,
   shotFeedback: true,
   markers: true,
+  dog: true,
 };
 
 function read(k, d) {

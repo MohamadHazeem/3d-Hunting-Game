@@ -35,13 +35,26 @@
   "clatter": [
    "flush_woodcock.mp3"
   ],
-  "flap": [
+  "flockFlush": [
    "flock_takeoff.mp3"
+  ],
+  "flap": [
+   "flap_2.mp3"
+  ],
+  "land": [
+   "land_1.mp3",
+   "land_2.mp3"
+  ],
+  "flutter": [
+   "flutter_2.mp3"
+  ],
+  "run": [
+   "run_1.mp3"
   ],
   "wingPass": [
    "wing_pass.mp3"
   ],
-  "hit": [
+  "thud": [
    "bird_thud.mp3"
   ],
   "pickup": [
@@ -49,6 +62,19 @@
   ],
   "cloth": [
    "cloth.mp3"
+  ],
+  "whistle": [
+   "whistle_2.mp3"
+  ],
+  "wingClap": [
+   "wing_clap_1.mp3",
+   "wing_clap_2.mp3"
+  ],
+  "dogWhistle": [
+   "dog_whistle.mp3"
+  ],
+  "dogShake": [
+   "dog_shake.mp3"
   ],
   "farSheep": [
    "far_sheep.mp3"
@@ -106,15 +132,18 @@
    "steps_snow_6.mp3",
    "steps_snow_7.mp3"
   ],
+  "dogBell": [
+   "dog_bell.mp3"
+  ],
+  "dogPant": [
+   "dog_pant.mp3"
+  ],
   "tsip": [
    "tsip_1.mp3",
    "tsip_2.mp3",
    "tsip_3.mp3",
    "tsip_4.mp3",
-   "tsip_5.mp3",
-   "tsip_6.mp3",
-   "tsip_7.mp3",
-   "tsip_8.mp3"
+   "tsip_5.mp3"
   ],
   "chack": [
    "chack_1.mp3",
@@ -130,7 +159,16 @@
    "pink_1.mp3",
    "pink_2.mp3",
    "pink_3.mp3",
-   "pink_4.mp3"
+   "pink_4.mp3",
+   "pink_5.mp3",
+   "pink_6.mp3",
+   "pink_7.mp3",
+   "pink_8.mp3"
+  ],
+  "rattle": [
+   "rattle_1.mp3",
+   "rattle_2.mp3",
+   "rattle_3.mp3"
   ],
   "quail": [
    "quail_1.mp3",
@@ -151,6 +189,12 @@
    "songThrush_6.mp3",
    "songThrush_7.mp3",
    "songThrush_8.mp3"
+  ],
+  "songChaffinch": [
+   "songChaffinch_1.mp3",
+   "songChaffinch_2.mp3",
+   "songChaffinch_3.mp3",
+   "songChaffinch_4.mp3"
   ]
  },
  "beds": {

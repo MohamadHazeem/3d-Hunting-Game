@@ -1194,6 +1194,12 @@ export class BirdManager {
     }
   }
 
+  // A dog pressing in on a bird it has pointed (authority only).
+  dogFlush(id, from) {
+    const b = this.birds.get(id);
+    if (b && (b.state === 'hidden' || b.state === 'running')) this.flush(b, from);
+  }
+
   // The hunter's whistle draws passing thrush/finch flocks in.
   whistle(pos) {
     if (!this.authority) return 0;
@@ -1379,7 +1385,7 @@ export class BirdManager {
     const P = this.authority ? b.pos : b.renderPos || b.pos;
     const M = b.model;
     const root = M.root;
-    if (b.state === 'hidden') {
+    if (b.state === 'hidden' || b.carried) {
       root.visible = false;
       return;
     }
@@ -1442,7 +1448,8 @@ export class BirdManager {
   snapshot() {
     const out = [];
     for (const b of this.birds.values()) {
-      if (b.state === 'hidden') continue;
+      // hidden ground birds go too, so other hunters' dogs can scent them
+      if (b.state === 'hidden' && b.sp.behaviour !== 'ground') continue;
       out.push([
         b.id,
         SPECIES_LIST.indexOf(b.spId),

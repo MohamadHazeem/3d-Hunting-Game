@@ -11,6 +11,7 @@ import { BirdManager } from './birds/birds.js';
 import { Player } from './player/player.js';
 import { Shotgun, CHOKES } from './player/shotgun.js';
 import { PatternBoards } from './player/boards.js';
+import { Dog } from './dog/dog.js';
 import { Particles, ShellHulls } from './player/effects.js';
 import { Input } from './core/input.js';
 import { setMaxAnisotropy } from './core/assets.js';
@@ -296,6 +297,18 @@ class Game {
     this.gun.boards = this.boards;
     this.gun.onShotResult = (r) => this.onShotResult(r);
     this.gun.onBoardResult = (res, barrel) => this.onBoardResult(res, barrel);
+    if (settings.dog) {
+      this.dog = new Dog(scene, this.world, {
+        myId: this.myId,
+        onFlush: (b, pos) => {
+          if (this.authority) this.birds.dogFlush(b.id, pos);
+          else this.net.send({ t: 'dogFlush', bird: b.id, p: pos.toArray() });
+        },
+        onDeliver: (id) => this.deliver(id),
+        onPoint: (b) => this.hud.message('The dog is on point! · الكلب واقف — walk in, or <b>F</b> to send it in', 'kill'),
+      });
+      this.dog.place(spawn.x + 1.5, spawn.z + 2);
+    }
     this.addPlayer(this.myId, settings.name, true);
 
     if (this.authority) this.birds.initialPopulation(this.playerList());
@@ -424,6 +437,7 @@ class Game {
     const p = this.players.get(id);
     if (!p) return;
     if (p.avatar) p.avatar.dispose();
+    if (p.dog) p.dog.dispose();
     this.players.delete(id);
     this.hud.setRoom(this.net ? this.net.code : null, this.players.size);
     this.hud.message(`${p.name} left the hunt`, 'info');
@@ -466,6 +480,8 @@ class Game {
         p.yaw = m.yaw;
         p.pitch = m.pitch;
         p.avatar.push(m);
+        p.dg = m.dg;
+        this.remoteDog(p, m.dg);
       });
       net.on('shot', (m, from) => {
         const p = this.players.get(from);
@@ -480,6 +496,7 @@ class Game {
         if (p) p.lastDist = m.dist;
       });
       net.on('pickup', (m, from) => this.doPickup(m.bird, from));
+      net.on('dogFlush', (m) => this.birds.dogFlush(m.bird, new THREE.Vector3(...m.p)));
       net.on('whistle', (m, from) => {
         const pos = new THREE.Vector3(...m.p);
         audio.play('whistle', pos, { gain: 0.9, ref: 6, rate: 1.8 });
@@ -501,6 +518,7 @@ class Game {
           if (p && p.avatar) {
             p.avatar.push(s);
             p.pos.set(s.p[0], s.p[1], s.p[2]);
+            this.remoteDog(p, s.dg);
           }
         }
       });
@@ -547,12 +565,13 @@ class Game {
     const state = {
       p: [+me.pos.x.toFixed(2), +me.pos.y.toFixed(2), +me.pos.z.toFixed(2)],
       yaw: +me.yaw.toFixed(3), pitch: +me.pitch.toFixed(3), c: me.crouch, s: +me.speed.toFixed(1),
+      dg: this.dog ? this.dog.netState() : null,
     };
     if (net.isHost) {
       const list = [{ id: this.myId, ...state }];
       for (const p of this.players.values()) {
         if (p.me) continue;
-        list.push({ id: p.id, p: [p.pos.x, p.pos.y, p.pos.z], yaw: p.yaw || 0, pitch: p.pitch || 0, c: p.crouch, s: p.speed });
+        list.push({ id: p.id, p: [p.pos.x, p.pos.y, p.pos.z], yaw: p.yaw || 0, pitch: p.pitch || 0, c: p.crouch, s: p.speed, dg: p.dg });
       }
       net.broadcast({ t: 'players', list });
       net.broadcast({ t: 'birds', ts: performance.now() / 1000, list: this.birds.snapshot() });
@@ -697,6 +716,19 @@ class Game {
     this.hud.message(`Hit the <span class="ar">${sp.ar}</span> — wounded, mark where it drops`, 'info');
   }
 
+  // Another hunter's dog, drawn from what they send.
+  remoteDog(p, dg) {
+    if (!dg) return;
+    if (!p.dog) p.dog = new Dog(this.scene, this.world, { remote: true, seed: p.id.length * 7 + 3 });
+    p.dog.applyRemote(dg);
+  }
+
+  // The dog has brought a bird back to us.
+  deliver(birdId) {
+    if (this.authority) this.doPickup(birdId, this.myId);
+    else this.net.send({ t: 'pickup', bird: birdId });
+  }
+
   tryPickup() {
     const b = this.birds.nearestDead(this.player.pos, 2.6);
     if (!b) return;
@@ -800,6 +832,10 @@ class Game {
       if (input.pressed('KeyQ')) this.whistle();
       if (input.pressed('Enter')) this.openChat();
       if (input.pressed('KeyM')) this.map.show(!this.map.open);
+      if (input.pressed('KeyF') && this.dog) {
+        const r = this.dog.command();
+        this.hud.message(r === 'flush' ? 'Go on! · هيا' : r === 'heel' ? 'Heel · لهون' : 'Hunt on · فتّش', 'info');
+      }
     }
     this.whistleCD -= dt;
 
@@ -814,7 +850,11 @@ class Game {
       this.boards.update();
       this.map.track(sim, this.player.pos);
       this.hulls.update(sim);
-      for (const p of this.players.values()) if (p.avatar) p.avatar.update(sim);
+      for (const p of this.players.values()) {
+        if (p.avatar) p.avatar.update(sim);
+        if (p.dog) p.dog.update(sim);
+      }
+      if (this.dog) this.dog.update(sim, this.player, this.wind.vec);
       this.grass.update(this.player.pos);
       // Lebanese hunting soundscape: other hunters' shots far across the valley
       this.ambientShot -= sim;
@@ -888,6 +928,11 @@ class Game {
       const mine = b.owner === this.myId;
       markers.push({ yaw: Math.atan2(p.x - me.x, -(p.z - me.z)), label: `${d.toFixed(0)}m`, color: mine ? '#e2a23b' : '#b9ae98' });
       if (b.state === 'dead' && d < 2.6) near = b;
+    }
+    if (this.dog && this.dog.state === 'point' && settings.markers) {
+      const p = this.dog.pos;
+      const d = Math.hypot(p.x - me.x, p.z - me.z);
+      markers.push({ yaw: Math.atan2(p.x - me.x, -(p.z - me.z)), label: `dog ${d.toFixed(0)}m`, color: '#ffffff' });
     }
     hud.drawCompass(this.player.yaw, markers);
     if (this.map.open) {
