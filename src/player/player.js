@@ -31,7 +31,10 @@ export class Player {
     this.fov = 72;
     this.baseFov = 72;
     this.sensitivity = 1;
+    this.adsSensitivity = 0.85;
+    this.invertY = false;
     this.outOfBounds = 0;
+    this.wasCrouch = false;
   }
 
   spawn(x, z, yaw) {
@@ -49,9 +52,9 @@ export class Player {
     const inp = this.input;
     if (locked) {
       const zoom = this.fov / this.baseFov;
-      const s = 0.0021 * this.sensitivity * zoom;
+      const s = 0.0021 * this.sensitivity * zoom * (this.ads ? this.adsSensitivity / 0.8 : 1);
       this.yaw -= inp.mouse.dx * s;
-      this.pitch -= inp.mouse.dy * s;
+      this.pitch -= inp.mouse.dy * s * (this.invertY ? -1 : 1);
       this.pitch = clamp(this.pitch, -1.45, 1.45);
     }
     inp.mouse.dx = 0;
@@ -121,13 +124,17 @@ export class Player {
       const strideLen = sprint ? 1.45 : this.crouch ? 0.6 : 0.85;
       if (this.stride > strideLen) {
         this.stride = 0;
-        const m = terrain.maskAt(this.pos.x, this.pos.z);
-        const leaves = m.forest > 0.45;
-        audio.play(leaves ? 'stepLeaves' : 'step', null, {
-          gain: (this.crouch ? 0.18 : sprint ? 0.5 : 0.3) * (leaves ? 1.2 : 1),
-          rate: 0.85 + Math.random() * 0.3,
+        const surface = this.surface();
+        audio.play(surface, null, {
+          gain: (this.crouch ? 0.22 : sprint ? 0.6 : 0.38) * (surface === 'stepLeaves' ? 1.15 : 1),
+          rate: sprint ? 1.08 : this.crouch ? 0.92 : 1,
+          pitchVar: 0.12,
         });
       }
+    }
+    if (this.crouch !== this.wasCrouch) {
+      this.wasCrouch = this.crouch;
+      audio.play('cloth', null, { gain: 0.25, rate: this.crouch ? 1 : 1.1 });
     }
 
     this.eye += ((this.crouch ? EYE_CROUCH : EYE) - this.eye) * Math.min(1, dt * 8);
@@ -148,12 +155,24 @@ export class Player {
     this.camera.position.set(this.pos.x + Math.cos(this.yaw) * bx, this.eyeY + by, this.pos.z - Math.sin(this.yaw) * bx);
     this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
 
-    const fovT = this.binocs ? 9 : this.ads ? 58 : this.baseFov;
+    const fovT = this.binocs ? 9 : this.ads ? this.baseFov * 0.8 : this.baseFov;
     this.fov += (fovT - this.fov) * Math.min(1, dt * 10);
     if (Math.abs(this.camera.fov - this.fov) > 0.01) {
       this.camera.fov = this.fov;
       this.camera.updateProjectionMatrix();
     }
+  }
+
+  // What the boots are on, for the footstep sound.
+  surface() {
+    const t = this.world.terrain;
+    const { x, z } = this.pos;
+    const m = t.maskAt(x, z);
+    if (m.snow > 0.45) return 'stepSnow';
+    if (t.road(x, z) < 2.2) return 'stepGravel';
+    if (m.forest > 0.45) return 'stepLeaves';
+    if (m.terrace > 0.5 && t.normal(x, z).y < 0.93) return 'stepStone';
+    return 'step';
   }
 
   get forward() {

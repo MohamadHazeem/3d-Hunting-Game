@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { HUNTS, huntById } from './config/hunts.js';
-import { SPECIES } from './config/species.js';
+import { SPECIES, GAME_SPECIES } from './config/species.js';
 import { Terrain, PLAY_RADIUS } from './world/terrain.js';
 import { Vegetation } from './world/vegetation.js';
 import { Grass } from './world/grass.js';
@@ -8,11 +8,13 @@ import { Structures } from './world/structures.js';
 import { Atmosphere } from './world/sky.js';
 import { BirdManager } from './birds/birds.js';
 import { Player } from './player/player.js';
-import { Shotgun } from './player/shotgun.js';
+import { Shotgun, CHOKES } from './player/shotgun.js';
+import { PatternBoards } from './player/boards.js';
 import { Particles, ShellHulls } from './player/effects.js';
 import { Input } from './core/input.js';
 import { setMaxAnisotropy } from './core/assets.js';
-import { audio } from './audio/audio.js';
+import { audio, VOLUME_DEFAULTS } from './audio/audio.js';
+import { settings, setSetting, onSettingChange, bindSettings } from './core/settings.js';
 import { HUD } from './ui/hud.js';
 import { Net } from './net/net.js';
 import { Avatar } from './net/avatar.js';
@@ -22,25 +24,7 @@ const TIME_SCALE = 4; // game seconds per real second
 
 // ---------------------------------------------------------------- menu
 
-const settings = {
-  hunt: HUNTS[0].id,
-  quality: localGet('quality', 'medium'),
-  name: localGet('name', ''),
-  sens: parseFloat(localGet('sens', '1')),
-};
-
-function localGet(k, d) {
-  try {
-    return localStorage.getItem('lbh.' + k) ?? d;
-  } catch {
-    return d;
-  }
-}
-function localSet(k, v) {
-  try {
-    localStorage.setItem('lbh.' + k, v);
-  } catch {}
-}
+settings.hunt = HUNTS[0].id;
 
 function renderMenu() {
   const el = $('hunts');
@@ -68,9 +52,52 @@ function fmtHour(h) {
 }
 
 $('name').value = settings.name;
-$('quality').value = settings.quality;
-$('sens').value = settings.sens;
 renderMenu();
+setupSettingsPanel();
+
+// ---------------------------------------------------------------- settings
+
+function setupSettingsPanel() {
+  const panel = $('settings');
+  bindSettings(panel);
+  for (const el of panel.querySelectorAll('[data-volume]')) {
+    const bus = el.dataset.volume;
+    const out = el.parentElement.querySelector('output');
+    el.value = audio.vol[bus] ?? VOLUME_DEFAULTS[bus];
+    const show = () => (out.textContent = `${Math.round(el.value * 100)}%`);
+    show();
+    el.addEventListener('input', () => {
+      audio.setVolume(bus, parseFloat(el.value));
+      show();
+    });
+  }
+  for (const b of panel.querySelectorAll('.tab-btn')) {
+    b.onclick = () => {
+      for (const x of panel.querySelectorAll('.tab-btn')) x.classList.toggle('sel', x === b);
+      for (const t of panel.querySelectorAll('.tab')) t.classList.toggle('hidden', t.dataset.tab !== b.dataset.tab);
+    };
+  }
+  $('btnSettings').onclick = () => openSettings();
+  $('btnSettingsClose').onclick = () => closeSettings();
+  panel.onclick = (e) => {
+    if (e.target === panel) closeSettings();
+  };
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !panel.classList.contains('hidden')) closeSettings();
+  });
+}
+
+function openSettings() {
+  $('settings').classList.remove('hidden');
+}
+
+function closeSettings() {
+  $('settings').classList.add('hidden');
+}
+
+onSettingChange((k, v) => {
+  if (game) game.applySetting(k, v);
+});
 
 // Builds for sandboxed hosts without WebRTC (set VITE_SOLO_ONLY=1) offer solo play only.
 if (import.meta.env.VITE_SOLO_ONLY) {
@@ -79,12 +106,7 @@ if (import.meta.env.VITE_SOLO_ONLY) {
 }
 
 function readSettings() {
-  settings.name = ($('name').value.trim() || 'Hunter ' + Math.floor(Math.random() * 90 + 10)).slice(0, 16);
-  settings.quality = $('quality').value;
-  settings.sens = parseFloat($('sens').value);
-  localSet('name', settings.name);
-  localSet('quality', settings.quality);
-  localSet('sens', settings.sens);
+  setSetting('name', ($('name').value.trim() || 'Hunter ' + Math.floor(Math.random() * 90 + 10)).slice(0, 16));
 }
 
 $('btnSolo').onclick = async () => {
@@ -131,8 +153,14 @@ $('btnJoin').onclick = async () => {
 
 $('btnQuit').onclick = (e) => {
   e.stopPropagation();
-  location.reload();
+  if (game) game.endHunt();
+  else location.reload();
 };
+$('btnPauseSettings').onclick = (e) => {
+  e.stopPropagation();
+  openSettings();
+};
+$('btnSummaryDone').onclick = () => location.reload();
 
 // ---------------------------------------------------------------- game
 
@@ -171,6 +199,7 @@ class Game {
     this.whistleCD = 0;
     this.ambientShot = 15;
     this.markers = [];
+    this.shotLog = [];
   }
 
   progress(p, text) {
@@ -203,6 +232,7 @@ class Game {
     const terrain = new Terrain(this.hunt, q);
     terrain.generate((p) => this.progress(0.02 + p * 0.35));
     this.terrain = terrain;
+    audio.setWorld((x, z) => terrain.height(x, z));
     this.progress(0.4, 'Laying textures…');
     await nextFrame();
     await terrain.buildMeshes(scene);
@@ -234,13 +264,17 @@ class Game {
 
     this.input = new Input(canvas);
     this.player = new Player(camera, this.world, this.input);
-    this.player.sensitivity = settings.sens;
+    for (const k of ['sens', 'adsSens', 'invertY', 'fov', 'showFps', 'crosshair']) this.applySetting(k, settings[k]);
     this.gun = new Shotgun(camera, scene, this.world, this.fx, this.hulls);
     this.gun.onShot = (o, d, b) => this.onLocalShot(o, d, b);
     this.gun.onBirdHits = (id, n, imp, dist) => this.onLocalHits(id, n, imp, dist);
 
     const spawn = this.findSpawn();
     this.player.spawn(spawn.x, spawn.z, spawn.yaw);
+    this.boards = new PatternBoards(scene, terrain, veg, this.player.pos, spawn.yaw);
+    this.gun.boards = this.boards;
+    this.gun.onShotResult = (r) => this.onShotResult(r);
+    this.gun.onBoardResult = (res, barrel) => this.onBoardResult(res, barrel);
     this.addPlayer(this.myId, settings.name, true);
 
     if (this.authority) this.birds.initialPopulation(this.playerList());
@@ -265,6 +299,17 @@ class Game {
       if (!this.input.locked && !this.chatOpen) this.input.lock();
     };
     window.__game = this;
+  }
+
+  applySetting(k, v) {
+    const p = this.player;
+    if (!p) return;
+    if (k === 'sens') p.sensitivity = v;
+    else if (k === 'adsSens') p.adsSensitivity = v;
+    else if (k === 'invertY') p.invertY = v;
+    else if (k === 'fov') p.baseFov = v;
+    else if (k === 'showFps') $('fps').classList.toggle('hidden', !v);
+    else if (k === 'crosshair') this.hud.crosshairOn = v;
   }
 
   findSpawn() {
@@ -306,6 +351,12 @@ class Game {
     this.hud.message(`Looking for: ${list.map((s) => `<span class="ar">${SPECIES[s].ar}</span>`).join(' ')}`, 'info');
     if (this.mode === 'host') this.hud.message(`Share the code <b style="color:#e2a23b;letter-spacing:.2em">${this.net.code}</b> with your friends`, 'info');
     this.hud.pause(true, this.net ? `Hunt code: ${this.net.code}` : '');
+    audio.setScene({
+      month: this.hunt.month,
+      kind: this.hunt.terrain.kind,
+      village: true,
+      church: ['koura', 'chouf', 'free'].includes(this.hunt.id),
+    });
     this.clock.start();
     this.renderer.setAnimationLoop(() => this.frame());
   }
@@ -500,6 +551,44 @@ class Game {
     }
   }
 
+  // What happened to a shot of yours, once the pellets have passed.
+  onShotResult(r) {
+    const entry = { hour: this.atmo.hour, barrel: r.barrel, spId: r.spId || null, dist: r.dist || 0, hits: r.hits || 0, result: 'miss', how: '' };
+    if (r.target) {
+      const sp = SPECIES[r.spId];
+      entry.result = r.hits >= sp.toughness ? 'kill' : r.hits > 0 ? 'wound' : 'miss';
+      const m = describeMiss(r);
+      entry.how = m.text;
+      entry.side = m.side;
+      entry.vert = m.vert;
+      if (settings.shotFeedback && entry.result !== 'kill') {
+        const tag = `<span class="ar">${sp.ar}</span> ${r.dist.toFixed(0)} m`;
+        if (entry.result === 'wound') this.hud.message(`${tag} · only ${r.hits} pellet${r.hits > 1 ? 's' : ''} struck${m.text ? ' — ' + m.text : ''}`, 'info');
+        else this.hud.message(`${tag} · ${m.text || 'missed'}`, 'info');
+      }
+    }
+    this.shotLog.push(entry);
+  }
+
+  onBoardResult(res, barrel) {
+    for (const b of res) {
+      const pct = Math.round((b.inCircle / 400) * 100);
+      this.hud.message(`Board at ${b.dist.toFixed(0)} m · ${CHOKES[barrel].name}: ${b.onBoard} pellets on the paper, ${b.inCircle} in the 75 cm circle (${pct}%)`, 'info');
+    }
+  }
+
+  endHunt() {
+    if (this.ended) return;
+    this.ended = true;
+    this.input.unlock();
+    this.hud.pause(false);
+    this.hud.show(false);
+    this.renderer.setAnimationLoop(null);
+    if (this.net) this.net.close();
+    $('summaryBody').innerHTML = summaryHtml(this.players.get(this.myId), this.shotLog, this.hunt);
+    $('summary').classList.remove('hidden');
+  }
+
   // events coming out of the bird simulation (authority only)
   processBirdEvents() {
     for (const e of this.birds.events) {
@@ -532,8 +621,8 @@ class Game {
       if (b) b.owner = m.by;
     }
     if (m.by === this.myId) {
-      this.hud.hitMarker(true);
-      audio.play('hit', null, { gain: 0.25 });
+      if (settings.hitMarker) this.hud.hitMarker(true);
+      audio.play('hitConfirm', null, { gain: 0.25 });
       const dist = m.dist || this.lastShotDist || 0;
       if (sp.protected) {
         this.hud.message(`<span class="ar">${sp.ar}</span> You shot a protected White Stork! −250 · طير محمي`, 'warn');
@@ -550,7 +639,7 @@ class Game {
   onWoundEvent(m) {
     if (m.by !== this.myId) return;
     const sp = SPECIES[m.sp];
-    this.hud.hitMarker(false);
+    if (settings.hitMarker) this.hud.hitMarker(false);
     this.hud.message(`Hit the <span class="ar">${sp.ar}</span> — wounded, mark where it drops`, 'info');
   }
 
@@ -666,6 +755,7 @@ class Game {
       this.veg.update(sim);
       this.terrain.update(sim);
       this.fx.update(sim);
+      this.boards.update();
       this.hulls.update(sim);
       for (const p of this.players.values()) if (p.avatar) p.avatar.update(sim);
       this.grass.update(this.player.pos);
@@ -676,6 +766,7 @@ class Game {
         this.ambientShot = 8 + Math.random() * 30 * (1.4 - dawn);
         audio.distantShot();
       }
+      this.updateSoundscape(sim);
       if (elev < 4 && this.atmo.hour > 12 && !this.duskWarned) {
         this.duskWarned = true;
         this.hud.message('The light is fading — last chances of the day', 'info');
@@ -690,8 +781,36 @@ class Game {
 
     audio.setListener(this.camera);
     this.updateHud();
+    this.updateFps();
     this.renderer.render(this.scene, this.camera);
     input.endFrame();
+  }
+
+  // Ambience follows the hour, the trees around you and the wind.
+  updateSoundscape(dt) {
+    this.ambT = (this.ambT || 0) - dt;
+    if (this.ambT <= 0) {
+      this.ambT = 0.5;
+      const p = this.player.pos;
+      this.treeDensity = Math.min(1, this.veg.treesNear(p.x, p.z, 28).length / 14);
+    }
+    const t = this.clock.elapsedTime;
+    const base = this.hunt.terrain.kind === 'highland' ? 0.75 : this.hunt.terrain.kind === 'plain' ? 0.5 : 0.35;
+    const wind = Math.min(1, Math.max(0, base + 0.18 * Math.sin(t * 0.07) + 0.1 * Math.sin(t * 0.23 + 1.7)));
+    audio.updateAmbience(dt, { hour: this.atmo.hour, trees: this.treeDensity || 0, wind });
+  }
+
+  updateFps() {
+    if (!settings.showFps) return;
+    const now = performance.now() / 1000;
+    this.fpsAcc = (this.fpsAcc || 0) + (now - (this.fpsLast || now));
+    this.fpsLast = now;
+    this.fpsN = (this.fpsN || 0) + 1;
+    if (this.fpsAcc > 0.5) {
+      $('fps').textContent = `${Math.round(this.fpsN / this.fpsAcc)} fps · ${((this.fpsAcc / this.fpsN) * 1000).toFixed(1)} ms`;
+      this.fpsAcc = 0;
+      this.fpsN = 0;
+    }
   }
 
   updateHud() {
@@ -708,20 +827,91 @@ class Game {
       if (b.state !== 'dead' && b.state !== 'falling') continue;
       const p = b.renderPos || b.pos;
       const d = Math.hypot(p.x - me.x, p.z - me.z);
-      if (d > 220) continue;
+      if (d > 220 || !settings.markers) continue;
       const mine = b.owner === this.myId;
       markers.push({ yaw: Math.atan2(p.x - me.x, -(p.z - me.z)), label: `${d.toFixed(0)}m`, color: mine ? '#e2a23b' : '#b9ae98' });
       if (b.state === 'dead' && d < 2.6) near = b;
     }
     hud.drawCompass(this.player.yaw, markers);
     if (near) hud.prompt(`<b>E</b> pick up <span class="ar">${near.sp.ar}</span> ${near.sp.en}`);
+    else if (this.boards.boards.length && this.boards.nearFiringPoint(me) && this.clock.elapsedTime < 240) hud.prompt(`Practice boards at ${this.boards.boards.map((b) => b.dist).join(' · ')} m to your right — shoot one to see your pattern`);
     else if (this.player.outOfBounds > 0) hud.prompt('Edge of the hunting ground · حدود منطقة الصيد');
     else if (!gun.canFire && !gun.reloading) hud.prompt('<b>R</b> reload');
     else hud.prompt('');
     const showBoard = this.input.down('Tab');
     if (showBoard !== this.boardShown || (showBoard && Math.random() < 0.05)) {
       this.boardShown = showBoard;
-      hud.scoreboard(showBoard, [...this.players.values()], this.hunt);
+      hud.scoreboard(showBoard, [...this.players.values()], this.hunt, this.shotLog.slice(-6));
     }
   }
+}
+
+// ---------------------------------------------------------------- shot feedback
+
+// How a shot went past its bird, in hunters' terms: behind or ahead of a
+// crossing bird, over or under, or the pattern on it but too thin.
+function describeMiss(r) {
+  const crossing = Math.abs(r.lat) > 2.5;
+  const tol = Math.max(0.12, r.spread * 0.7);
+  const H = Math.abs(r.h);
+  const V = Math.abs(r.v);
+  const parts = [];
+  let side = null;
+  let vert = null;
+  if (H > tol) {
+    if (crossing) side = Math.sign(r.h) === Math.sign(r.lat) ? 'ahead' : 'behind';
+    else side = r.h > 0 ? 'right' : 'left';
+    parts.push(`${side} by ${H.toFixed(1)} m`);
+  }
+  if (V > tol) {
+    vert = r.v > 0 ? 'over' : 'under';
+    parts.push(`${vert} by ${V.toFixed(1)} m`);
+  }
+  let text = parts.join(', ');
+  if (!parts.length) text = r.dist > 42 ? 'pattern was on it, but too thin at this range' : 'pattern was on it — unlucky gap';
+  if (r.pelletSpeed < 150 || r.dist > 48) text += ` · at ${r.dist.toFixed(0)} m the pellets are weak`;
+  return { text, side, vert };
+}
+
+function summaryHtml(me, log, hunt) {
+  const bagged = Object.values(me.bag).reduce((a, b) => a + b, 0);
+  const atBirds = log.filter((e) => e.spId);
+  const kills = atBirds.filter((e) => e.result === 'kill');
+  const longest = kills.reduce((m, e) => Math.max(m, e.dist), 0);
+  const avg = atBirds.length ? atBirds.reduce((a, e) => a + e.dist, 0) / atBirds.length : 0;
+  const pct = log.length ? Math.round((me.hits / log.length) * 100) : 0;
+  const stat = (v, l) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`;
+  const bagList = GAME_SPECIES.filter((s) => me.bag[s]).map((s) => `<span class="ar">${SPECIES[s].ar}</span> ${me.bag[s]}`).join(' · ');
+
+  // advice from the misses
+  const misses = atBirds.filter((e) => e.result !== 'kill');
+  const count = (k, v) => misses.filter((e) => e[k] === v).length;
+  const behind = count('side', 'behind');
+  const ahead = count('side', 'ahead');
+  const under = count('vert', 'under');
+  const over = count('vert', 'over');
+  const far = atBirds.filter((e) => e.dist > 45).length;
+  const tips = [];
+  if (behind >= 2 && behind > ahead * 1.5) tips.push(`Most misses on crossing birds were <b>behind</b> (${behind} of ${behind + ahead}). Swing through the bird and keep the gun moving as you fire — at 30 m a crossing thrush needs about 1.5 m of lead.`);
+  if (ahead >= 2 && ahead > behind * 1.5) tips.push(`You were often <b>ahead</b> of crossing birds (${ahead} times). Give them a little less lead.`);
+  if (under >= 2 && under > over * 1.5) tips.push(`Several shots went <b>under</b> (${under}). Rising birds climb as the shot travels — cover them with the barrels.`);
+  if (over >= 2 && over > under * 1.5) tips.push(`Several shots went <b>over</b> (${over}). Dropping or landing birds need you to stay underneath them.`);
+  if (far >= 2) tips.push(`${far} shots were beyond 45 m, where the pattern is too thin to kill cleanly. Let them come closer.`);
+  if (!tips.length) tips.push(atBirds.length ? 'Good shooting — no clear pattern in your misses.' : 'No shots at birds today. Walk slowly, use the binoculars and the whistle to bring flocks in.');
+
+  const rows = log
+    .slice(-24)
+    .map((e) => {
+      const sp = e.spId ? SPECIES[e.spId] : null;
+      const hh = Math.floor(e.hour);
+      const mm = String(Math.floor((e.hour - hh) * 60)).padStart(2, '0');
+      const res = { kill: 'down', wound: 'hit', miss: 'miss' }[e.result];
+      return `<tr><td>${hh}:${mm}</td><td>${sp ? `<span class="ar">${sp.ar}</span> ${sp.en}` : '—'}</td><td>${e.dist ? e.dist.toFixed(0) + ' m' : ''}</td><td>${CHOKES[e.barrel].short}</td><td class="res-${e.result}">${res}</td><td>${e.result === 'kill' ? e.hits + ' pellets' : e.how || ''}</td></tr>`;
+    })
+    .join('');
+  return `<div class="stats">${stat(bagged, 'birds in the bag')}${stat(me.score, 'score')}${stat(log.length, 'shots')}${stat(pct + '%', 'birds per shot')}${stat(longest ? longest.toFixed(0) + ' m' : '—', 'longest kill')}${stat(avg ? avg.toFixed(0) + ' m' : '—', 'average shot')}</div>
+    ${bagList ? `<p>${bagList}</p>` : ''}
+    <div class="advice">${tips.join('<br>')}</div>
+    ${rows ? `<table class="shotlog"><tr><th>Time</th><th>Bird</th><th>Range</th><th>Barrel</th><th>Result</th><th>How</th></tr>${rows}</table>` : ''}
+    <p class="dim">${hunt.en} · ${hunt.month}</p>`;
 }

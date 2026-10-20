@@ -79,7 +79,7 @@ export class HUD {
   }
 
   setAim(ads, binocs) {
-    $('crosshair').style.opacity = ads || binocs ? 0 : 1;
+    $('crosshair').style.opacity = ads || binocs || this.crosshairOn === false ? 0 : 1;
     $('vignette').classList.toggle('on', ads);
     $('binoc').classList.toggle('on', binocs);
   }
@@ -145,7 +145,7 @@ export class HUD {
     ctx.fillRect(W / 2 - 1, 30, 2, 6);
   }
 
-  scoreboard(show, rows, hunt) {
+  scoreboard(show, rows, hunt, shots = []) {
     const el = $('scoreboard');
     el.classList.toggle('hidden', !show);
     if (!show) return;
@@ -159,7 +159,12 @@ export class HUD {
     const species = Object.keys(hunt.species)
       .map((s) => `<span class="ar" style="margin:0">${SPECIES[s].ar}</span> ${SPECIES[s].en} — ${SPECIES[s].note}`)
       .join('<br>');
-    el.innerHTML = `<table><tr><th>Hunter</th>${head}<th>Hits/Shots</th><th>Score</th></tr>${body}</table><div class="note">${species}</div>`;
+    const log = shots
+      .slice()
+      .reverse()
+      .map((e) => `<div>${e.spId ? `<span class="ar" style="margin:0">${SPECIES[e.spId].ar}</span> ${e.dist.toFixed(0)} m — ` : ''}${e.result === 'kill' ? `down (${e.hits} pellets)` : e.how || 'no bird near the line'}</div>`)
+      .join('');
+    el.innerHTML = `<table><tr><th>Hunter</th>${head}<th>Hits/Shots</th><th>Score</th></tr>${body}</table>${log ? `<div class="note"><b>Your last shots</b>${log}</div>` : ''}<div class="note">${species}</div>`;
   }
 
   pause(show, info = '') {

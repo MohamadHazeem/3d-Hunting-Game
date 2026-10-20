@@ -1,0 +1,164 @@
+{
+ "groups": {
+  "shot": [
+   "shot_near_1.mp3",
+   "shot_near_2.mp3",
+   "shot_near_3.mp3"
+  ],
+  "shotFar": [
+   "shot_far_1.mp3",
+   "shot_far_2.mp3"
+  ],
+  "breakOpen": [
+   "gun_open.mp3"
+  ],
+  "breakClose": [
+   "gun_close.mp3"
+  ],
+  "shellOut": [
+   "shell_eject.mp3"
+  ],
+  "shellIn": [
+   "shell_insert_1.mp3",
+   "shell_insert_2.mp3"
+  ],
+  "dry": [
+   "dry_fire.mp3"
+  ],
+  "shellDrop": [
+   "shell_drop.mp3"
+  ],
+  "whirr": [
+   "flush_quail_2.mp3",
+   "flush_quail_1.mp3"
+  ],
+  "clatter": [
+   "flush_woodcock.mp3"
+  ],
+  "flap": [
+   "flock_takeoff.mp3"
+  ],
+  "wingPass": [
+   "wing_pass.mp3"
+  ],
+  "hit": [
+   "bird_thud.mp3"
+  ],
+  "pickup": [
+   "pickup.mp3"
+  ],
+  "cloth": [
+   "cloth.mp3"
+  ],
+  "farSheep": [
+   "far_sheep.mp3"
+  ],
+  "farBell": [
+   "far_church_bell.mp3"
+  ],
+  "farDog": [
+   "far_dog.mp3"
+  ],
+  "farRooster": [
+   "far_rooster.mp3"
+  ],
+  "step": [
+   "steps_grass_1.mp3",
+   "steps_grass_2.mp3",
+   "steps_grass_3.mp3",
+   "steps_grass_4.mp3",
+   "steps_grass_5.mp3",
+   "steps_grass_6.mp3",
+   "steps_grass_7.mp3",
+   "steps_grass_8.mp3"
+  ],
+  "stepLeaves": [
+   "steps_leaves_1.mp3",
+   "steps_leaves_2.mp3",
+   "steps_leaves_3.mp3",
+   "steps_leaves_4.mp3",
+   "steps_leaves_5.mp3"
+  ],
+  "stepGravel": [
+   "steps_gravel_1.mp3",
+   "steps_gravel_2.mp3",
+   "steps_gravel_3.mp3",
+   "steps_gravel_4.mp3",
+   "steps_gravel_5.mp3",
+   "steps_gravel_6.mp3",
+   "steps_gravel_7.mp3"
+  ],
+  "stepStone": [
+   "steps_stone_1.mp3",
+   "steps_stone_2.mp3",
+   "steps_stone_3.mp3",
+   "steps_stone_4.mp3",
+   "steps_stone_5.mp3",
+   "steps_stone_6.mp3",
+   "steps_stone_7.mp3"
+  ],
+  "stepSnow": [
+   "steps_snow_1.mp3",
+   "steps_snow_2.mp3",
+   "steps_snow_3.mp3",
+   "steps_snow_4.mp3",
+   "steps_snow_5.mp3",
+   "steps_snow_6.mp3",
+   "steps_snow_7.mp3"
+  ],
+  "tsip": [
+   "tsip_1.mp3",
+   "tsip_2.mp3",
+   "tsip_3.mp3",
+   "tsip_4.mp3",
+   "tsip_5.mp3",
+   "tsip_6.mp3",
+   "tsip_7.mp3",
+   "tsip_8.mp3"
+  ],
+  "chack": [
+   "chack_1.mp3",
+   "chack_2.mp3",
+   "chack_3.mp3",
+   "chack_4.mp3",
+   "chack_5.mp3",
+   "chack_6.mp3",
+   "chack_7.mp3",
+   "chack_8.mp3"
+  ],
+  "pink": [
+   "pink_1.mp3",
+   "pink_2.mp3",
+   "pink_3.mp3",
+   "pink_4.mp3"
+  ],
+  "quail": [
+   "quail_1.mp3",
+   "quail_2.mp3",
+   "quail_3.mp3",
+   "quail_4.mp3",
+   "quail_5.mp3",
+   "quail_6.mp3",
+   "quail_7.mp3",
+   "quail_8.mp3"
+  ],
+  "songThrush": [
+   "songThrush_1.mp3",
+   "songThrush_2.mp3",
+   "songThrush_3.mp3",
+   "songThrush_4.mp3",
+   "songThrush_5.mp3",
+   "songThrush_6.mp3",
+   "songThrush_7.mp3",
+   "songThrush_8.mp3"
+  ]
+ },
+ "beds": {
+  "dawn": "amb_dawn.mp3",
+  "cicadas": "amb_cicadas.mp3",
+  "crickets": "amb_crickets.mp3",
+  "windTrees": "amb_wind_trees.mp3",
+  "windOpen": "amb_wind_open.mp3",
+  "winterWood": "amb_winter_wood.mp3"
+ }
+}

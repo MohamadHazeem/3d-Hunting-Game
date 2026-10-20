@@ -11,11 +11,14 @@ const PELLETS = 400;
 const MUZZLE_V = 385; // m/s
 const DRAG = 0.0187; // quadratic drag: speed halves at ~37 m
 const MIN_LETHAL_V = 120;
-// pattern spread (radians, 1 sigma) for the two chokes
-const CHOKES = [
-  { name: 'Improved Cylinder', sigma: 0.0118 },
-  { name: 'Full', sigma: 0.0072 },
+// Pattern spread (radians, 1 sigma) for the two chokes, set so the share of
+// pellets in a 75 cm circle at 36.6 m (40 yards) matches real patterning:
+// about 50% for Improved Cylinder and 70% for Full.
+export const CHOKES = [
+  { name: 'Improved Cylinder', short: 'IC', sigma: 0.0088 },
+  { name: 'Full', short: 'Full', sigma: 0.0067 },
 ];
+let shotCounter = 0;
 
 function walnutTexture() {
   const c = document.createElement('canvas');
@@ -195,6 +198,9 @@ export class Shotgun {
     this.lastPitch = 0;
     this.onShot = null; // (origin, dir, barrel) -> void
     this.onBirdHits = null; // (birdId, hits, impulse, distance) -> void
+    this.onShotResult = null; // ({ barrel, target, dist, hits, h, v, lat, ... }) -> void
+    this.onBoardResult = null; // ([{ dist, onBoard, inCircle }], barrel) -> void
+    this.boards = null;
     this.lower = 0;
   }
 
@@ -245,7 +251,7 @@ export class Shotgun {
       dir.y += (Math.random() - 0.5) * 0.035 - 0.01;
       dir.normalize();
     }
-    this.spawnShot(origin, dir, b, true);
+    this.spawnShot(origin, dir, b, true, Math.random() * 1e9, this.pickTarget(origin, dir));
     audio.gunshot(origin, true);
     this.recoilV += 9;
     this.flashT = 0.05;
@@ -258,8 +264,28 @@ export class Shotgun {
     return true;
   }
 
+  // The bird you were most likely shooting at: the closest to the line of
+  // the barrels, within a few degrees.
+  pickTarget(origin, dir) {
+    let best = null;
+    let bestA = 0.16;
+    for (const b of this.world.birds.birds.values()) {
+      if (b.state !== 'flying' && b.state !== 'perched') continue;
+      const p = b.renderPos || b.pos;
+      const v = new THREE.Vector3().subVectors(p, origin);
+      const d = v.length();
+      if (d > 110 || d < 2) continue;
+      const a = Math.acos(Math.min(1, v.dot(dir) / d));
+      if (a < bestA) {
+        bestA = a;
+        best = b;
+      }
+    }
+    return best;
+  }
+
   // Simulate a shot. `local` shots resolve hits against birds; remote ones are visual only.
-  spawnShot(origin, dir, barrel, local, seed = Math.random() * 1e9) {
+  spawnShot(origin, dir, barrel, local, seed = Math.random() * 1e9, target = null) {
     const r = new Random(seed | 0);
     const sigma = CHOKES[barrel].sigma;
     const up = Math.abs(dir.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
@@ -285,7 +311,23 @@ export class Shotgun {
     }
     // trunks near the shot line block pellets
     const trunks = this.world.veg.treesNear(origin.x + dir.x * 40, origin.z + dir.z * 40, 50);
-    this.shots.push({ pos, vel, alive, t: 0, local, origin: origin.clone(), dir: dir.clone(), hits: new Map(), done: new Set(), trunks });
+    const shot = { id: ++shotCounter, barrel, pos, vel, alive, t: 0, local, origin: origin.clone(), dir: dir.clone(), hits: new Map(), done: new Set(), trunks };
+    if (local && target) {
+      // a "ghost" pellet down the centre of the pattern, to see where the
+      // pattern went relative to the bird
+      const tp = (target.renderPos || target.pos).clone();
+      shot.track = {
+        bird: target,
+        spId: target.spId,
+        startDist: tp.distanceTo(origin),
+        gp: origin.clone().addScaledVector(dir, 0.8),
+        gv: dir.clone().multiplyScalar(MUZZLE_V),
+        last: tp,
+        birdVel: new THREE.Vector3(),
+        best: null,
+      };
+    }
+    this.shots.push(shot);
   }
 
   updateShots(dt) {
@@ -297,7 +339,16 @@ export class Shotgun {
       s.t += dt;
       const steps = Math.ceil(dt / (1 / 120));
       const h = dt / steps;
+      if (s.track && dt > 0) {
+        // the bird's velocity this frame (the host's own value when we have it)
+        const bird = s.track.bird;
+        const bp = bird.renderPos || bird.pos;
+        if (!bird.renderPos && bird.vel) s.track.birdVel.copy(bird.vel);
+        else s.track.birdVel.subVectors(bp, s.track.last).divideScalar(dt);
+        s.track.last.copy(bp);
+      }
       for (let st = 0; st < steps; st++) {
+        if (s.track) this.stepTrack(s, h);
         for (let i = 0; i < PELLETS; i++) {
           if (!s.alive[i]) continue;
           const k = i * 3;
@@ -331,6 +382,12 @@ export class Shotgun {
               }
               continue;
             }
+          }
+          // practice boards
+          if (this.boards && this.boards.test(a, b, s.id)) {
+            s.alive[i] = 0;
+            s.board = true;
+            continue;
           }
           // trunks
           let blocked = false;
@@ -369,10 +426,61 @@ export class Shotgun {
             const bird = birds.birds.get(id);
             if (bird) this.reportHit(s, bird, n);
           }
+          this.reportResult(s);
+        }
+        if (s.board && this.boards) {
+          const res = this.boards.resolve(s.id, s.origin);
+          if (res.length && s.local && this.onBoardResult) this.onBoardResult(res, s.barrel);
         }
       }
     }
     this.shots = this.shots.filter((s) => s.t < 0.7);
+  }
+
+  // Move the centre-of-pattern ghost and remember where it passed the bird.
+  stepTrack(s, h) {
+    const T = s.track;
+    const g = T.gv;
+    const sp = g.length();
+    const f = 1 / (1 + DRAG * sp * h);
+    g.x *= f;
+    g.y = g.y * f - 9.81 * h;
+    g.z *= f;
+    T.gp.addScaledVector(g, h);
+    const bp = T.bird.renderPos || T.bird.pos;
+    const along = new THREE.Vector3().subVectors(T.gp, s.origin).dot(s.dir);
+    const birdAlong = new THREE.Vector3().subVectors(bp, s.origin).dot(s.dir);
+    if (T.done || along < birdAlong - 3) return;
+    // where the pattern centre is when it crosses the bird's range
+    const miss = new THREE.Vector3().subVectors(T.gp, bp);
+    if (!T.best || miss.lengthSq() < T.best.miss.lengthSq()) T.best = { miss, vel: T.birdVel.clone(), dist: bp.distanceTo(s.origin), speed: sp };
+    if (along > birdAlong + 3) T.done = true;
+  }
+
+  reportResult(s) {
+    if (!this.onShotResult) return;
+    const T = s.track;
+    if (!T || !T.best) {
+      this.onShotResult({ id: s.id, barrel: s.barrel, target: null });
+      return;
+    }
+    const right = new THREE.Vector3().crossVectors(s.dir, new THREE.Vector3(0, 1, 0)).normalize();
+    const up = new THREE.Vector3().crossVectors(right, s.dir).normalize();
+    const B = T.best;
+    this.onShotResult({
+      id: s.id,
+      barrel: s.barrel,
+      target: T.bird.id,
+      spId: T.spId,
+      dist: B.dist,
+      hits: s.hits.get(T.bird.id) || 0,
+      h: B.miss.dot(right), // + = pattern passed to the right of the bird
+      v: B.miss.dot(up), // + = pattern passed above
+      lat: B.vel.dot(right), // bird's sideways speed across your view
+      vert: B.vel.dot(up),
+      pelletSpeed: B.speed,
+      spread: CHOKES[s.barrel].sigma * B.dist,
+    });
   }
 
   reportHit(s, bird, n) {
