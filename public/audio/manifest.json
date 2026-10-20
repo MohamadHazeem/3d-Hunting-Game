@@ -195,6 +195,77 @@
    "songChaffinch_2.mp3",
    "songChaffinch_3.mp3",
    "songChaffinch_4.mp3"
+  ],
+  "v_ahead": [
+   "v_ahead_1.mp3"
+  ],
+  "v_behind": [
+   "v_behind_1.mp3"
+  ],
+  "v_dog": [
+   "v_dog_1.mp3"
+  ],
+  "v_double": [
+   "v_double_1.mp3"
+  ],
+  "v_dusk": [
+   "v_dusk_1.mp3"
+  ],
+  "v_far": [
+   "v_far_1.mp3"
+  ],
+  "v_ferri": [
+   "v_ferri_1.mp3",
+   "v_ferri_2.mp3"
+  ],
+  "v_kikhen": [
+   "v_kikhen_1.mp3"
+  ],
+  "v_left": [
+   "v_left_1.mp3"
+  ],
+  "v_miss": [
+   "v_miss_1.mp3",
+   "v_miss_2.mp3"
+  ],
+  "v_morning": [
+   "v_morning_1.mp3"
+  ],
+  "v_mtawwaq": [
+   "v_mtawwaq_1.mp3"
+  ],
+  "v_nice": [
+   "v_nice_1.mp3",
+   "v_nice_2.mp3",
+   "v_nice_3.mp3"
+  ],
+  "v_overhead": [
+   "v_overhead_1.mp3"
+  ],
+  "v_right": [
+   "v_right_1.mp3"
+  ],
+  "v_salanj": [
+   "v_salanj_1.mp3"
+  ],
+  "v_samman": [
+   "v_samman_1.mp3",
+   "v_samman_2.mp3"
+  ],
+  "v_shikab": [
+   "v_shikab_1.mp3"
+  ],
+  "v_stork": [
+   "v_stork_1.mp3"
+  ],
+  "v_tirghel": [
+   "v_tirghel_1.mp3"
+  ],
+  "v_unsafe": [
+   "v_unsafe_1.mp3"
+  ],
+  "v_wounded": [
+   "v_wounded_1.mp3"
   ]
  },
  "beds": {

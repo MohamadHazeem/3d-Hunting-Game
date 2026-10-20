@@ -484,7 +484,7 @@ export class AudioSystem {
     const buf = this.pick(name);
     if (!buf) return null;
     const ctx = this.ctx;
-    const [busName, prio0] = ROUTING[name] || ['effects', 4];
+    const [busName, prio0] = ROUTING[name] || (name.startsWith('v_') ? ['voice', 8] : ['effects', 4]);
     const bus = this.buses[opts.bus || busName];
     const prio = opts.priority ?? prio0;
     let delay = opts.delay || 0;

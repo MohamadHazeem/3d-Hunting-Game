@@ -16,6 +16,7 @@ import { Particles, ShellHulls } from './player/effects.js';
 import { Input } from './core/input.js';
 import { setMaxAnisotropy } from './core/assets.js';
 import { audio, VOLUME_DEFAULTS } from './audio/audio.js';
+import { Companion } from './audio/companion.js';
 import { settings, setSetting, onSettingChange, bindSettings } from './core/settings.js';
 import { ChallengeTracker, challengeListHtml, CHALLENGES } from './core/challenges.js';
 import { HUD } from './ui/hud.js';
@@ -215,6 +216,8 @@ class Game {
     this.ambientShot = 15;
     this.markers = [];
     this.shotLog = [];
+    this.companion = new Companion();
+    this.companion.enabled = settings.companion;
     this.challenges = new ChallengeTracker((c, how) => this.onChallenge(c, how));
   }
 
@@ -307,7 +310,10 @@ class Game {
           else this.net.send({ t: 'dogFlush', bird: b.id, p: pos.toArray() });
         },
         onDeliver: (id) => this.deliver(id),
-        onPoint: (b) => this.hud.message('The dog is on point! · الكلب واقف — walk in, or <b>F</b> to send it in', 'kill'),
+        onPoint: (b) => {
+          this.hud.message('The dog is on point! · الكلب واقف — walk in, or <b>F</b> to send it in', 'kill');
+          this.companion.onDogPoint();
+        },
       });
       this.dog.place(spawn.x + 1.5, spawn.z + 2);
     }
@@ -338,6 +344,7 @@ class Game {
       if (!this.input.locked && !this.chatOpen) this.input.lock();
     };
     window.__game = this;
+    if (import.meta.env.DEV) window.__audio = audio;
   }
 
   applySetting(k, v) {
@@ -349,6 +356,7 @@ class Game {
     else if (k === 'fov') p.baseFov = v;
     else if (k === 'showFps') $('fps').classList.toggle('hidden', !v);
     else if (k === 'crosshair') this.hud.crosshairOn = v;
+    else if (k === 'companion' && this.companion) this.companion.enabled = v;
   }
 
   // How strong the migration is today: some mornings the thrush pour through,
@@ -407,6 +415,7 @@ class Game {
     else if (flyers && this.passage.kind === 'quiet') this.hud.message('A quiet morning — few birds moving today', 'info');
     const wn = this.wind.name;
     this.hud.message(`Wind ${wn.en} ${this.wind.speed.toFixed(0)} m/s · ريح <span class="ar">${wn.ar}</span>`, 'info');
+    this.companion.onStart(this.atmo.hour);
     if (this.mode === 'host') this.hud.message(`Share the code <b style="color:#e2a23b;letter-spacing:.2em">${this.net.code}</b> with your friends`, 'info');
     this.hud.pause(true, this.net ? `Hunt code: ${this.net.code}` : '');
     audio.setScene({
@@ -615,6 +624,7 @@ class Game {
         const me = this.players.get(this.myId);
         me.score -= 50;
         this.hud.message(`Unsafe shot — ${p.name} was in your line! −50 · انتبه عرفيقك`, 'warn');
+        this.companion.onUnsafe();
         this.updateHudStats();
         if (this.net) this.net.broadcast({ t: 'chat', from: '⚠', text: `${settings.name} fired towards ${p.name}` });
         return;
@@ -663,7 +673,11 @@ class Game {
       }
     }
     this.shotLog.push(entry);
+    const before = this.challenges.thisHunt.length;
     this.challenges.onShot(this.shotLog, entry);
+    const prev = this.shotLog[this.shotLog.length - 2];
+    const double = entry.result === 'kill' && prev && prev.result === 'kill' && prev.loadId === entry.loadId && prev.barrel !== entry.barrel && entry.time - prev.time < 6;
+    this.companion.onShot(entry, double || (this.challenges.thisHunt.length > before && this.challenges.thisHunt.at(-1) === 'rightLeft'));
   }
 
   onChallenge(c, how) {
@@ -710,6 +724,9 @@ class Game {
           this.net.broadcast(m);
           this.net.broadcast(this.scoresMsg());
         }
+      } else if (e.type === 'flush') {
+        const b = this.birds.birds.get(e.id);
+        if (b) this.companion.onFlush(e.spId, b.pos.distanceTo(this.player.pos));
       } else if (e.type === 'wound') {
         const m = { t: 'wound', bird: e.id, by: e.by, sp: e.spId };
         this.onWoundEvent(m);
@@ -732,6 +749,7 @@ class Game {
       const dist = m.dist || this.lastShotDist || 0;
       if (sp.protected) {
         this.hud.message(`<span class="ar">${sp.ar}</span> You shot a protected White Stork! −250 · طير محمي`, 'warn');
+        this.companion.onStork();
       } else {
         this.hud.message(`<span class="ar">${sp.ar}</span> ${sp.en} down — ${dist.toFixed(0)} m`, 'kill');
       }
@@ -897,11 +915,13 @@ class Game {
         audio.distantShot();
       }
       this.wind.update(sim);
+      this.companion.update(sim, this);
       windUniforms.uWind.value = 0.35 + this.wind.speed / 5;
       this.updateSoundscape(sim);
       if (elev < 4 && this.atmo.hour > 12 && !this.duskWarned) {
         this.duskWarned = true;
         this.hud.message('The light is fading — last chances of the day', 'info');
+        this.companion.onDusk();
       }
     }
 

@@ -1,6 +1,6 @@
 """Turn raw recordings into game-ready sounds in public/audio.
 
-  python3 tools/audio/process.py <elevenlabs_raw_dir> <commons_raw_dir> <out_dir>
+  python3 tools/audio/process.py <elevenlabs_raw_dir> <commons_raw_dir> <out_dir> [voice_dir]
 
 - ElevenLabs one-shots: trimmed, click-free tails, peak-normalised.
 - Footstep sequences: split into single steps.
@@ -239,6 +239,16 @@ def main():
             for s in slice_events(x, ev, pad=0.05, max_len=max_len, keep=keep):
                 n += 1
                 add(name, peak_norm(s, -2), f"{name}_{n}.mp3")
+
+    # -------- the hunting companion's voice lines (v_<what>_<n>.mp3 -> group v_<what>)
+    voice = sys.argv[4] if len(sys.argv) > 4 else None
+    if voice and os.path.isdir(voice):
+        for f in sorted(os.listdir(voice)):
+            if not f.endswith(".mp3") or not f.startswith("v_"):
+                continue
+            name = f.rsplit("_", 1)[0]
+            x = fade(peak_norm(trim(load(os.path.join(voice, f)), -40, -50, 0.0), -3), 0.004, 0.05)
+            add(name, x, f)
 
     json.dump({"groups": groups, "beds": beds}, open(os.path.join(out, "manifest.json"), "w"), indent=1)
     for k, v in groups.items():

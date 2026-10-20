@@ -14,6 +14,7 @@ const DEFAULTS = {
   shotFeedback: true,
   markers: true,
   dog: true,
+  companion: true,
   choke0: 'IC',
   choke1: 'F',
   shotSize: '8',
