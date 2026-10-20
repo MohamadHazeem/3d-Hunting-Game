@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>صيد لبنان · Lebanon Hunt 3D</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/ui/style.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <!-- Main menu -->
+    <div id="menu" class="overlay">
+      <div class="menu-inner">
+        <header class="brand">
+          <div class="brand-ar">صيد لبنان</div>
+          <div class="brand-en">LEBANON HUNT <span>3D</span></div>
+          <div class="brand-sub">Quail · Thrush · Woodcock · Chaffinch · Fieldfare — on the terraces, fields and woods of Lebanon</div>
+        </header>
+
+        <section>
+          <h3>Choose your hunting ground <span class="ar">اختار مكان الصيد</span></h3>
+          <div id="hunts" class="hunts"></div>
+        </section>
+
+        <section class="row">
+          <div class="panel">
+            <h3>Hunter <span class="ar">الصياد</span></h3>
+            <label>Name <input id="name" maxlength="16" placeholder="Abu Ali" /></label>
+            <label>Graphics
+              <select id="quality">
+                <option value="low">Low (laptops)</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High (gaming PC)</option>
+              </select>
+            </label>
+            <label>Mouse sensitivity <input id="sens" type="range" min="0.3" max="2.5" step="0.05" value="1" /></label>
+          </div>
+          <div class="panel">
+            <h3>Play <span class="ar">العب</span></h3>
+            <button id="btnSolo" class="primary">Hunt solo <span class="ar">لوحدك</span></button>
+            <button id="btnHost">Host a hunt with friends <span class="ar">ادعِ رفقاتك</span></button>
+            <div class="join">
+              <input id="joinCode" maxlength="5" placeholder="CODE" />
+              <button id="btnJoin">Join <span class="ar">انضم</span></button>
+            </div>
+            <div id="netStatus" class="status"></div>
+          </div>
+          <div class="panel help">
+            <h3>Controls</h3>
+            <div class="keys">
+              <b>WASD</b> walk · <b>Shift</b> run · <b>C</b> crouch · <b>Space</b> jump<br />
+              <b>Right mouse</b> mount gun · <b>Left mouse</b> fire<br />
+              <b>R</b> reload · <b>E</b> pick up bird · <b>B</b> binoculars<br />
+              <b>Q</b> whistle (call thrush/finch) · <b>Tab</b> bag &amp; scores · <b>Enter</b> chat
+            </div>
+            <p class="tip">Lead crossing birds — shot takes time to arrive. Effective range is about 35 m. Never shoot storks: they are protected.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="overlay hidden">
+      <div class="loading-box">
+        <div class="brand-ar small">صيد لبنان</div>
+        <div id="loadText">Preparing the hunting ground…</div>
+        <div class="bar"><div id="loadBar"></div></div>
+      </div>
+    </div>
+
+    <!-- In-game HUD -->
+    <div id="hud" class="hidden">
+      <canvas id="compass" width="640" height="44"></canvas>
+      <div id="clock"></div>
+      <div id="room"></div>
+      <div id="crosshair"></div>
+      <div id="hitmarker"></div>
+      <div id="vignette"></div>
+      <div id="binoc"></div>
+      <div id="feed"></div>
+      <div id="prompt"></div>
+      <div id="ammo">
+        <div class="shells"><i id="sh0"></i><i id="sh1"></i></div>
+        <div id="reserve"></div>
+      </div>
+      <div id="bag"></div>
+      <div id="score"></div>
+      <div id="scoreboard" class="hidden"></div>
+      <div id="chat"><div id="chatLog"></div><input id="chatInput" class="hidden" maxlength="120" placeholder="Say something…" /></div>
+      <div id="pause" class="hidden">
+        <div class="pause-box">
+          <div class="brand-ar small">صيد لبنان</div>
+          <p>Click to continue hunting</p>
+          <p class="dim" id="pauseInfo"></p>
+          <button id="btnQuit">Leave hunt</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
