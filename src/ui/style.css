@@ -213,3 +213,5 @@ table.shotlog .ar { margin: 0; color: var(--accent); }
 .lang-ar .advice, .lang-ar .ch { text-align: right; }
 .lang-ar .ar { margin-left: 0; margin-right: 0; }
 .msg, #prompt { unicode-bidi: plaintext; }
+.pause-btns { flex-wrap: wrap; }
+#btnRest { flex-basis: 100%; }

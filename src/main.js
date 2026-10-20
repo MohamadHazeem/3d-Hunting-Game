@@ -188,6 +188,10 @@ $('btnPauseSettings').onclick = (e) => {
   openSettings();
 };
 $('btnSummaryDone').onclick = () => location.reload();
+$('btnRest').onclick = (e) => {
+  e.stopPropagation();
+  if (game) game.restUntilEvening();
+};
 $('btnGuide').onclick = () => openGuide($('guide'));
 $('btnPauseGuide').onclick = (e) => {
   e.stopPropagation();
@@ -357,7 +361,8 @@ class Game {
 
     addEventListener('resize', () => this.resize());
     this.resize();
-    this.input.onLockChange = (locked) => {
+    this.input.onLockChange = () => {
+      const locked = this.input.engaged;
       this.hud.pause(!locked && !this.chatOpen, this.net ? `Hunt code: ${this.net.code}` : '');
       if (locked) audio.resume();
     };
@@ -720,6 +725,18 @@ class Game {
     }
   }
 
+  // Skip the midday lull: the hunter sits under an olive tree until the
+  // evening flight (host or solo only; clients follow the host's clock).
+  restUntilEvening() {
+    if (!this.authority) return;
+    const evening = Math.max(this.atmo.hour, this.atmo.month.set - 2.2);
+    if (evening <= this.atmo.hour + 0.25) return;
+    this.atmo.hour = evening;
+    if (this.net) this.net.broadcast({ t: 'hour', hour: this.atmo.hour });
+    this.hud.message(t('rested'), 'info');
+    this.input.lock();
+  }
+
   endHunt() {
     if (this.ended) return;
     this.ended = true;
@@ -891,7 +908,8 @@ class Game {
 
   frame() {
     const dt = Math.min(0.05, this.clock.getDelta());
-    const locked = this.input.locked;
+    this.input.pollGamepad(dt);
+    const locked = this.input.engaged;
     const paused = !locked && !this.net && !this.chatOpen;
     const input = this.input;
     const sim = paused ? 0 : dt;
@@ -947,6 +965,15 @@ class Game {
         this.hud.message(t('fading'), 'info');
         this.companion.onDusk();
       }
+      // after dark the hunt is over
+      if (this.atmo.hour >= this.atmo.month.set + 0.24) {
+        this.nightT = (this.nightT || 0) + sim;
+        if (this.nightT > 45 && !this.ended) {
+          this.hud.message(t('nightfall'), 'warn');
+          setTimeout(() => this.endHunt(), 3500);
+          this.nightT = -1e9;
+        }
+      }
     }
 
     this.netTimer -= dt;
@@ -992,6 +1019,8 @@ class Game {
     hud.setAmmo(gun.loaded, gun.reserve, !!gun.reloading);
     hud.setAim(this.player.ads && gun.ads > 0.6, this.player.binocs);
     hud.setClock(this.atmo.hour, this.hunt);
+    const canRest = this.authority && this.atmo.hour > 10.3 && this.atmo.hour < this.atmo.month.set - 2.5;
+    $('btnRest').classList.toggle('hidden', !canRest);
     hud.setWind(this.wind.from, this.wind.speed, this.player.yaw);
     // markers for downed birds
     const markers = [];
