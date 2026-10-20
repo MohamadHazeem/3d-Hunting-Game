@@ -1,0 +1,110 @@
+{
+ "quail_song_a": {
+  "file": "Common Quail (Coturnix coturnix) (W1CDR0001390 BD1).ogg",
+  "page": "https://commons.wikimedia.org/wiki/File:Common_Quail_(Coturnix_coturnix)_(W1CDR0001390_BD1).ogg",
+  "license": "CC BY-SA 4.0",
+  "artist": ""
+ },
+ "quail_song_b": {
+  "file": "Coturnix coturnix - Common Quail XC559360.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Coturnix_coturnix_-_Common_Quail_XC559360.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Benoît Van Hecke"
+ },
+ "thrush_call_a": {
+  "file": "Turdus philomelos - Song Thrush XC432625.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Turdus_philomelos_-_Song_Thrush_XC432625.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Joost van Bruggen"
+ },
+ "thrush_call_b": {
+  "file": "Turdus philomelos - Song Thrush XC432917.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Turdus_philomelos_-_Song_Thrush_XC432917.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Joost van Bruggen"
+ },
+ "thrush_call_c": {
+  "file": "Turdus philomelos - Song Thrush XC434600.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Turdus_philomelos_-_Song_Thrush_XC434600.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Joost van Bruggen"
+ },
+ "thrush_song_a": {
+  "file": "Turdus philomelos - Song Thrush XC541754.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Turdus_philomelos_-_Song_Thrush_XC541754.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Benoît Van Hecke"
+ },
+ "thrush_song_b": {
+  "file": "Turdus philomelos - Song Thrush XC527483.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Turdus_philomelos_-_Song_Thrush_XC527483.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Benoît Van Hecke"
+ },
+ "fieldfare_call_a": {
+  "file": "Turdus pilaris - Fieldfare XC531160.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Turdus_pilaris_-_Fieldfare_XC531160.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Benoît Van Hecke"
+ },
+ "fieldfare_call_b": {
+  "file": "Turdus pilaris - Fieldfare XC403028.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Turdus_pilaris_-_Fieldfare_XC403028.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Alexander Kürthy"
+ },
+ "chaffinch_call_a": {
+  "file": "Fringilla coelebs - Common Chaffinch XC539300.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Fringilla_coelebs_-_Common_Chaffinch_XC539300.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Benoît Van Hecke"
+ },
+ "chaffinch_call_b": {
+  "file": "Fringilla coelebs - Common Chaffinch XC560861.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Fringilla_coelebs_-_Common_Chaffinch_XC560861.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Olivier Grimm"
+ },
+ "chaffinch_song_a": {
+  "file": "Fringilla coelebs - Common Chaffinch XC489896.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Fringilla_coelebs_-_Common_Chaffinch_XC489896.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Hannu Varkki"
+ },
+ "chaffinch_song_b": {
+  "file": "Fringilla coelebs - Common Chaffinch XC482887.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Fringilla_coelebs_-_Common_Chaffinch_XC482887.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Marie-Lan Taÿ Pamart"
+ },
+ "mistle_call_a": {
+  "file": "Turdus viscivorus - Mistle Thrush XC430010.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Turdus_viscivorus_-_Mistle_Thrush_XC430010.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Jan Cibulka"
+ },
+ "turtle_a": {
+  "file": "Streptopelia turtur - European Turtle Dove XC582028.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Streptopelia_turtur_-_European_Turtle_Dove_XC582028.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Benoît Van Hecke"
+ },
+ "turtle_b": {
+  "file": "Streptopelia turtur - European Turtle Dove XC481626.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Streptopelia_turtur_-_European_Turtle_Dove_XC481626.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Alexander Kürthy"
+ },
+ "pigeon_a": {
+  "file": "Columba palumbus - Common Wood Pigeon XC561877.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Columba_palumbus_-_Common_Wood_Pigeon_XC561877.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Benoît Van Hecke"
+ },
+ "pigeon_b": {
+  "file": "Columba palumbus - Common Wood Pigeon XC108354.mp3",
+  "page": "https://commons.wikimedia.org/wiki/File:Columba_palumbus_-_Common_Wood_Pigeon_XC108354.mp3",
+  "license": "CC BY-SA 4.0",
+  "artist": "Alexander Kurthy"
+ }
+}

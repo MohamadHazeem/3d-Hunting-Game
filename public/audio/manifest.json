@@ -194,7 +194,29 @@
    "songChaffinch_1.mp3",
    "songChaffinch_2.mp3",
    "songChaffinch_3.mp3",
-   "songChaffinch_4.mp3"
+   "songChaffinch_4.mp3",
+   "songChaffinch_5.mp3",
+   "songChaffinch_6.mp3",
+   "songChaffinch_7.mp3",
+   "songChaffinch_8.mp3"
+  ],
+  "purr": [
+   "purr_1.mp3",
+   "purr_2.mp3",
+   "purr_3.mp3",
+   "purr_4.mp3",
+   "purr_5.mp3",
+   "purr_6.mp3",
+   "purr_7.mp3",
+   "purr_8.mp3"
+  ],
+  "coo": [
+   "coo_1.mp3",
+   "coo_2.mp3",
+   "coo_3.mp3",
+   "coo_4.mp3",
+   "coo_5.mp3",
+   "coo_6.mp3"
   ],
   "v_ahead": [
    "v_ahead_1.mp3"
