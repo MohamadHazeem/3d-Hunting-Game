@@ -211,9 +211,14 @@ function build(speciesId) {
   const armGeoL = armGeo.clone().scale(-1, 1, 1);
   const handGeoL = handGeo.clone().scale(-1, 1, 1);
 
+  const legLen = 0.16;
+  const legGeo = new THREE.CylinderGeometry(0.011, 0.008, legLen, 4);
+  legGeo.translate(0, -legLen / 2, 0);
+  const legMat = new THREE.MeshStandardMaterial({ color: sp.legColor || '#a08070', roughness: 0.7 });
+
   return {
-    sp, bodyMat, wingMat, headMat, billMat, tailMat, eyeMat,
-    bodyGeo, headGeo, billGeo, eyeGeo, tailGeo, armGeo, handGeo, armGeoL, handGeoL,
+    sp, bodyMat, wingMat, headMat, billMat, tailMat, eyeMat, legMat,
+    bodyGeo, headGeo, billGeo, eyeGeo, tailGeo, armGeo, handGeo, armGeoL, handGeoL, legGeo,
     halfSpan, headR, bodyLen,
   };
 }
@@ -263,6 +268,20 @@ export function createBirdMesh(speciesId) {
   tail.position.set(0, K.bodyLen * b.h * 0.1, -K.bodyLen * 0.42);
   body.add(tail);
 
+  // Small birds tuck their legs in flight; they show when perched, running,
+  // or dangling from a wounded bird.
+  const legs = [];
+  if (!(b.legs > 0)) {
+    for (const sx of [-1, 1]) {
+      const hip = new THREE.Group();
+      hip.position.set(sx * K.bodyLen * b.w * 0.12, -K.bodyLen * b.h * 0.18, -0.02);
+      hip.add(new THREE.Mesh(K.legGeo, K.legMat));
+      hip.visible = false;
+      body.add(hip);
+      legs.push(hip);
+    }
+  }
+
   // wings: shoulder pivot -> arm mesh, wrist pivot -> hand mesh
   const wings = [];
   for (const side of [1, -1]) {
@@ -286,20 +305,29 @@ export function createBirdMesh(speciesId) {
     }
   });
   root.scale.setScalar(sp.length);
-  return { root, body, head, tail, wings };
+  return { root, body, head, tail, wings, legs };
 }
 
-// Wing poses. phase in radians; mode: 'flap' | 'glide' | 'fold' | 'limp' | 'perch'
+// Wing poses. phase in radians; mode: 'flap' | 'climb' | 'glide' | 'flare' |
+// 'fold' | 'limp' | 'perch' (and 'peck' / 'preen' / 'run', which fold the wings)
+const FOLDED = new Set(['fold', 'perch', 'peck', 'preen', 'run']);
+
 export function poseWings(model, mode, phase, amp = 1, t = 0) {
   for (const w of model.wings) {
     const s = w.side;
     // a folded wing tucks its feathers in: much narrower chord
-    const folded = mode === 'fold' || mode === 'perch';
+    const folded = FOLDED.has(mode);
     w.shoulder.scale.set(1, 1, folded ? 0.42 : 1);
-    if (mode === 'flap') {
+    if (mode === 'flap' || mode === 'climb') {
+      // 'climb' is the hard, full stroke of a take-off or a towering bird
+      const k = mode === 'climb' ? 1.25 : 1;
       const a = Math.sin(phase);
-      w.shoulder.rotation.set(0, -s * Math.max(0, -a) * 0.2, s * a * 0.95 * amp);
-      w.wrist.rotation.set(0, 0, s * Math.sin(phase - 0.7) * 0.55 * amp);
+      w.shoulder.rotation.set(0, -s * Math.max(0, -a) * 0.2 * k, s * (a * 0.95 * k + (k - 1) * 0.4) * amp);
+      w.wrist.rotation.set(0, 0, s * Math.sin(phase - 0.7) * 0.55 * amp * k);
+    } else if (mode === 'flare') {
+      // landing: wings raised, spread wide and swept forward, braking with quick shallow beats
+      w.shoulder.rotation.set(0, -s * 0.35, s * (0.55 + Math.sin(phase) * 0.28));
+      w.wrist.rotation.set(0, 0, -s * (0.25 + Math.sin(phase - 0.6) * 0.15));
     } else if (mode === 'glide') {
       w.shoulder.rotation.set(0, 0, s * 0.08);
       w.wrist.rotation.set(0, 0, -s * 0.05);
@@ -312,6 +340,22 @@ export function poseWings(model, mode, phase, amp = 1, t = 0) {
       w.shoulder.rotation.set(-Math.PI / 2 * 0.94, 0, s * Math.PI / 2 * 0.9);
       w.wrist.rotation.set(0, s * (Math.PI - 0.15), 0);
     }
+  }
+  // the tail fans out to brake when landing
+  model.tail.scale.x = mode === 'flare' ? 1.8 : mode === 'glide' ? 1.2 : 1;
+}
+
+// Leg poses for small birds: 'tuck' (in flight) | 'stand' | 'run' | 'dangle' (wounded)
+export function poseLegs(model, mode, t = 0) {
+  const L = model.legs;
+  if (!L.length) return;
+  for (let i = 0; i < 2; i++) {
+    const leg = L[i];
+    leg.visible = mode !== 'tuck' && !(mode === 'dangle' && i === 1);
+    if (!leg.visible) continue;
+    if (mode === 'run') leg.rotation.set(Math.sin(t * 22 + i * Math.PI) * 0.75, 0, 0);
+    else if (mode === 'dangle') leg.rotation.set(0.6 + Math.sin(t * 5) * 0.35, 0, Math.sin(t * 3.3) * 0.25);
+    else leg.rotation.set(0.12, 0, 0);
   }
 }
 

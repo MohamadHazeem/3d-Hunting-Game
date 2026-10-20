@@ -24,6 +24,11 @@ export const SPECIES = {
     toughness: 2,
     points: 10,
     call: 'quail',
+    // behaviour tuning
+    legColor: '#b88a6a',
+    run: 0.45, // chance a sitting quail runs off through the stubble before it flushes
+    takeoff: { dur: 0.45, vy: 5.5 },
+    sight: 0,
   },
   woodcock: {
     id: 'woodcock',
@@ -46,6 +51,10 @@ export const SPECIES = {
     toughness: 3,
     points: 35,
     call: 'woodcock',
+    legColor: '#9a8a7a',
+    run: 0,
+    takeoff: { dur: 0.6, vy: 5 }, // rises steeply to clear the undergrowth
+    sight: 0,
   },
   songThrush: {
     id: 'songThrush',
@@ -69,6 +78,11 @@ export const SPECIES = {
     toughness: 2,
     points: 15,
     call: 'tsip',
+    legColor: '#c9a08a',
+    // boids: separation distance, cohesion / alignment weights, flock spread (m)
+    flocking: { sep: 2.2, coh: 1.0, ali: 0.75, spread: 5 },
+    takeoff: { dur: 0.5, vy: 3.5 },
+    sight: 65, // how far a flock notices a hunter moving in the open (m)
   },
   fieldfare: {
     id: 'fieldfare',
@@ -92,6 +106,10 @@ export const SPECIES = {
     toughness: 2,
     points: 20,
     call: 'chack',
+    legColor: '#5a4a40',
+    flocking: { sep: 4.5, coh: 0.4, ali: 0.45, spread: 18 },
+    takeoff: { dur: 0.5, vy: 3.5 },
+    sight: 85,
   },
   chaffinch: {
     id: 'chaffinch',
@@ -115,6 +133,10 @@ export const SPECIES = {
     toughness: 1,
     points: 8,
     call: 'pink',
+    legColor: '#a08070',
+    flocking: { sep: 2.6, coh: 0.55, ali: 0.4, spread: 12 },
+    takeoff: { dur: 0.4, vy: 3.2 },
+    sight: 45,
   },
   stork: {
     id: 'stork',
@@ -138,6 +160,9 @@ export const SPECIES = {
     toughness: 8,
     points: -250,
     call: 'none',
+    flocking: { sep: 14, coh: 0.25, ali: 0.3, spread: 45 },
+    takeoff: { dur: 1.2, vy: 2 },
+    sight: 0,
   },
 };
 
