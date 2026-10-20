@@ -72,6 +72,12 @@ $('quality').value = settings.quality;
 $('sens').value = settings.sens;
 renderMenu();
 
+// Builds for sandboxed hosts without WebRTC (set VITE_SOLO_ONLY=1) offer solo play only.
+if (import.meta.env.VITE_SOLO_ONLY) {
+  for (const id of ['btnHost', 'btnJoin', 'joinCode']) $(id).disabled = true;
+  $('netStatus').textContent = 'Hunting with friends needs the GitHub Pages version of the game. Solo hunting works here.';
+}
+
 function readSettings() {
   settings.name = ($('name').value.trim() || 'Hunter ' + Math.floor(Math.random() * 90 + 10)).slice(0, 16);
   settings.quality = $('quality').value;
@@ -262,13 +268,24 @@ class Game {
   }
 
   findSpawn() {
-    // stand on the dirt track near the middle of the ground
-    let best = { z: 0, d: Infinity };
-    for (let z = -250; z <= 250; z += 1) {
-      const d = this.terrain.road(0, z);
-      if (d < best.d) best = { z, d };
+    // stand on the dirt track near the middle of the ground, on level footing
+    // with a clear view east along the track
+    const t = this.terrain;
+    let best = null;
+    for (let x = -120; x <= 120; x += 6) {
+      let bz = 0;
+      let bd = Infinity;
+      for (let z = -250; z <= 250; z += 1) {
+        const d = t.road(x, z);
+        if (d < bd) [bd, bz] = [d, z];
+      }
+      const h0 = t.height(x, bz);
+      let rise = 0;
+      for (let k = 1; k <= 12; k++) rise = Math.max(rise, t.height(x + k, bz) - h0 - k * 0.15);
+      const score = rise + Math.abs(x) * 0.002 + (1 - t.normal(x, bz).y) * 5;
+      if (!best || score < best.score) best = { x, z: bz, score };
     }
-    return { x: 0, z: best.z, yaw: -Math.PI / 2 };
+    return { x: best.x, z: best.z, yaw: -Math.PI / 2 };
   }
 
   resize() {

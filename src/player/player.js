@@ -134,6 +134,13 @@ export class Player {
     // smooth the camera over terrace steps
     const targetEye = this.pos.y + this.eye;
     this.eyeY += (targetEye - this.eyeY) * Math.min(1, dt * (Math.abs(targetEye - this.eyeY) > 0.3 ? 9 : 25));
+    // never let the eye sink into a rising slope or terrace wall just ahead
+    let clear = -Infinity;
+    for (let a = 0; a < 6; a++) {
+      const ang = this.yaw + (a / 6) * Math.PI * 2;
+      clear = Math.max(clear, terrain.height(this.pos.x - Math.sin(ang) * 0.7, this.pos.z - Math.cos(ang) * 0.7));
+    }
+    this.eyeY = Math.max(this.eyeY, clear + 0.45);
 
     const bobAmt = this.ads ? 0.15 : 1;
     const by = Math.sin(this.bob * 2) * 0.035 * bobAmt * Math.min(1, this.speed / 3);

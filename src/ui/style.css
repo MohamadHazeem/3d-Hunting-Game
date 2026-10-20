@@ -124,3 +124,4 @@ button.primary .ar { color: #3a2608; }
 .pause-box { text-align: center; background: var(--panel); border: 1px solid var(--line); padding: 24px 34px; border-radius: 14px; min-width: 300px; }
 .pause-box .dim { color: var(--dim); font-size: 13px; }
 .pause-box button { width: auto; padding: 8px 18px; }
+button:disabled, input:disabled { opacity: 0.45; cursor: not-allowed; }
