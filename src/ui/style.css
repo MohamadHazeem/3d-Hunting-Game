@@ -162,3 +162,22 @@ table.shotlog .ar { margin: 0; color: var(--accent); }
 .res-miss { color: var(--dim); }
 .res-wound { color: #ffb4a3; }
 @media (max-width: 560px) { .tab input[type='range'] { width: 120px; } #scoreboard { min-width: 0; width: 94vw; } }
+#wind { position: absolute; top: 62px; right: 20px; font-size: 12.5px; color: var(--dim); }
+#wind .arrow { display: inline-block; color: var(--ink); font-weight: 800; font-size: 15px; margin-right: 4px; transition: transform 0.2s; }
+
+/* Challenges */
+.challenges-panel { margin-top: 12px; }
+.challenges { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
+.ch { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.18); font-size: 13px; }
+.ch .tick { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; color: #1d1408; font-weight: 800; font-size: 12px; }
+.ch.done .tick { background: var(--accent); border-color: var(--accent); }
+.ch.daily { border-color: rgba(226, 162, 59, 0.6); }
+.ch em { color: var(--accent); font-style: normal; font-size: 12px; font-weight: 700; }
+.ch .dim { color: var(--dim); font-size: 12px; margin-top: 2px; }
+.ch .ar { margin-left: 4px; }
+
+/* Map */
+#map { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+#map canvas { display: block; width: min(80vh, 86vw); height: min(80vh, 86vw); border-radius: 8px; }
+.map-key { font-size: 12px; color: var(--dim); margin-top: 6px; text-align: center; }
+.map-key b { color: var(--ink); background: rgba(255, 255, 255, 0.1); padding: 0 5px; border-radius: 3px; }

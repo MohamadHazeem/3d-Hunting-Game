@@ -70,6 +70,18 @@ export class HUD {
     $('clock').innerHTML = `<b>${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}</b> · ${hunt.month}<br><span class="ar">${hunt.ar}</span>`;
   }
 
+  // Wind: an arrow showing where it blows relative to where you face.
+  setWind(fromBearing, speed, yaw) {
+    const el = $('wind');
+    const rel = fromBearing + Math.PI + yaw; // yaw 0 faces north; turning left is +yaw
+    const deg = Math.round((rel * 180) / Math.PI);
+    const s = speed.toFixed(0);
+    if (this.windDeg === deg && this.windS === s) return;
+    this.windDeg = deg;
+    this.windS = s;
+    el.innerHTML = `<span class="arrow" style="transform:rotate(${deg}deg)">↑</span> wind ${s} m/s`;
+  }
+
   setRoom(code, players) {
     $('room').innerHTML = code ? `Hunt code <b>${code}</b><br>${players} hunter${players === 1 ? '' : 's'}` : '';
   }

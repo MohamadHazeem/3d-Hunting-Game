@@ -201,6 +201,7 @@ export class Shotgun {
     this.onShotResult = null; // ({ barrel, target, dist, hits, h, v, lat, ... }) -> void
     this.onBoardResult = null; // ([{ dist, onBoard, inCircle }], barrel) -> void
     this.boards = null;
+    this.wind = null; // THREE.Vector3, m/s
     this.lower = 0;
   }
 
@@ -347,8 +348,10 @@ export class Shotgun {
         else s.track.birdVel.subVectors(bp, s.track.last).divideScalar(dt);
         s.track.last.copy(bp);
       }
+      const wx = this.wind ? this.wind.x : 0;
+      const wz = this.wind ? this.wind.z : 0;
       for (let st = 0; st < steps; st++) {
-        if (s.track) this.stepTrack(s, h);
+        if (s.track) this.stepTrack(s, h, wx, wz);
         for (let i = 0; i < PELLETS; i++) {
           if (!s.alive[i]) continue;
           const k = i * 3;
@@ -358,10 +361,11 @@ export class Shotgun {
             s.alive[i] = 0;
             continue;
           }
-          const f = 1 / (1 + DRAG * sp * h);
-          vx *= f;
+          // drag acts on the speed through the air, so a crosswind drifts the shot
+          const f = 1 / (1 + DRAG * Math.hypot(vx - wx, vy, vz - wz) * h);
+          vx = wx + (vx - wx) * f;
           vy = vy * f - 9.81 * h;
-          vz *= f;
+          vz = wz + (vz - wz) * f;
           s.vel[k] = vx;
           s.vel[k + 1] = vy;
           s.vel[k + 2] = vz;
@@ -438,14 +442,14 @@ export class Shotgun {
   }
 
   // Move the centre-of-pattern ghost and remember where it passed the bird.
-  stepTrack(s, h) {
+  stepTrack(s, h, wx = 0, wz = 0) {
     const T = s.track;
     const g = T.gv;
     const sp = g.length();
-    const f = 1 / (1 + DRAG * sp * h);
-    g.x *= f;
+    const f = 1 / (1 + DRAG * Math.hypot(g.x - wx, g.y, g.z - wz) * h);
+    g.x = wx + (g.x - wx) * f;
     g.y = g.y * f - 9.81 * h;
-    g.z *= f;
+    g.z = wz + (g.z - wz) * f;
     T.gp.addScaledVector(g, h);
     const bp = T.bird.renderPos || T.bird.pos;
     const along = new THREE.Vector3().subVectors(T.gp, s.origin).dot(s.dir);
@@ -477,6 +481,7 @@ export class Shotgun {
       h: B.miss.dot(right), // + = pattern passed to the right of the bird
       v: B.miss.dot(up), // + = pattern passed above
       lat: B.vel.dot(right), // bird's sideways speed across your view
+      along: B.vel.dot(s.dir), // negative: coming towards you
       vert: B.vel.dot(up),
       pelletSpeed: B.speed,
       spread: CHOKES[s.barrel].sigma * B.dist,
@@ -495,6 +500,7 @@ export class Shotgun {
     if (this.loaded[0] && this.loaded[1]) return;
     if (this.reserve <= 0) return;
     this.reloading = { t: 0, ejected: false, inserted: 0, closed: false };
+    this.loadId = (this.loadId || 0) + 1;
     audio.play('breakOpen', null, { gain: 0.8 });
   }
 

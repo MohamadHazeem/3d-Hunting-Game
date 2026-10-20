@@ -107,6 +107,9 @@ export class BirdManager {
     this.feathers = new Feathers(scene, (x, z) => terrain.height(x, z));
     this.time = 0;
     this.weights = hunt.species;
+    this.wind = new THREE.Vector3(); // m/s, the way it blows
+    this.passage = 1; // how strong the migration is today
+    this.passageHeading = Math.PI; // migrants head south in autumn (compass bearing)
     this.crouched = new Map(); // player id -> was crouching last frame
     this.stoodAt = new Map(); // player id -> when they last stood up
   }
@@ -201,7 +204,13 @@ export class BirdManager {
     if (!players.length) return;
     const sp = SPECIES[spId];
     const p = this.rnd.pick(players).pos;
-    const a = this.rnd.float(0, Math.PI * 2);
+    // most passage flocks follow the day's migration heading; the rest are
+    // local birds moving about
+    let a = this.rnd.float(0, Math.PI * 2);
+    if (sp.behaviour !== 'soar' && this.rnd.chance(0.65)) {
+      const h = this.passageHeading + this.rnd.gauss() * 0.45;
+      a = Math.atan2(Math.cos(h), -Math.sin(h)); // start up-track of the heading
+    }
     const dir = new THREE.Vector2(Math.cos(a), Math.sin(a));
     const side = new THREE.Vector2(-dir.y, dir.x);
     const lateral = sp.behaviour === 'soar' ? this.rnd.float(-150, 150) : this.rnd.gauss() * 45;
@@ -274,7 +283,7 @@ export class BirdManager {
     const dawn = Math.exp(-(((hour - 7.2) / 1.6) ** 2));
     const dusk = Math.exp(-(((hour - 16.3) / 0.9) ** 2)) * 0.6;
     const base = spId === 'fieldfare' ? 2.2 : spId === 'chaffinch' ? 2.0 : 3.0;
-    return base * w * (0.35 + dawn + dusk);
+    return base * w * (0.35 + dawn + dusk) * this.passage;
   }
 
   // ---------------- seeing the hunter ----------------
@@ -558,7 +567,8 @@ export class BirdManager {
     for (const p of players) {
       const d = Math.hypot(p.pos.x - b.pos.x, p.pos.z - b.pos.z);
       nearest = Math.min(nearest, d);
-      const k = (p.crouch ? 0.75 : 1) * (p.speed < 0.3 ? 0.85 : 1);
+      // birds are wilder on a windy day
+      const k = (p.crouch ? 0.75 : 1) * (p.speed < 0.3 ? 0.85 : 1) * (1 + 0.3 * Math.min(1, this.wind.length() / 9));
       if (d < b.flushDist * k) {
         this.flush(b, p.pos);
         return;
@@ -628,6 +638,14 @@ export class BirdManager {
     const away = new THREE.Vector2(b.pos.x - from.x, b.pos.z - from.z);
     if (away.lengthSq() < 1e-6) away.set(1, 0);
     away.normalize().rotateAround(ZERO2, this.rnd.float(-1.1, 1.1));
+    // game birds like to get up into the wind, as long as that isn't back over the hunter
+    const ws = Math.hypot(this.wind.x, this.wind.z);
+    if (ws > 1.5) {
+      const into = new THREE.Vector2(-this.wind.x / ws, -this.wind.z / ws);
+      const bent = away.clone().addScaledVector(into, 0.7 * Math.min(1, ws / 6)).normalize();
+      const fromHunter = new THREE.Vector2(b.pos.x - from.x, b.pos.z - from.z).normalize();
+      if (bent.dot(fromHunter) > 0.15) away.copy(bent);
+    }
     b.heading.copy(away);
     b.baseDir.copy(away);
     b.alt = this.rnd.float(...sp.flight.alt);
