@@ -154,12 +154,24 @@
         <div class="tab hidden" data-tab="graphics">
           <label>Quality
             <select id="quality" data-setting="quality">
+              <option value="auto">Auto (picks for your graphics card)</option>
               <option value="low">Low (laptops)</option>
               <option value="medium">Medium</option>
               <option value="high">High (gaming PC)</option>
+              <option value="ultra">Ultra (strong graphics card)</option>
             </select>
           </label>
           <p class="dim">Quality changes take effect on your next hunt.</p>
+          <label>Render scale
+            <select id="renderScale">
+              <option value="">Dynamic (holds the frame rate)</option>
+              <option value="1">100%</option>
+              <option value="0.85">85%</option>
+              <option value="0.75">75%</option>
+              <option value="0.6">60%</option>
+            </select>
+          </label>
+          <p class="dim" id="gfxInfo"></p>
           <label>Show frame rate <input data-setting="showFps" type="checkbox" /></label>
         </div>
         <div class="tab hidden" data-tab="sound">

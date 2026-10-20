@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { Noise2D, clamp, smoothstep, lerp } from '../core/rng.js';
 import { loadTex } from '../core/assets.js';
+import { tierSettings } from '../gfx/quality.js';
+import './shading.js';
 
 // The playable core is a high-resolution heightfield; around it a coarse
 // ring of terrain stretches out to the horizon so you see real mountain
@@ -10,6 +12,9 @@ export const CORE_SIZE = 1000;
 export const PLAY_RADIUS = 430;
 const OUTER_SIZE = 16000;
 const MASK_RES = 256;
+// terraces: height of one step, and where in each step the riser begins
+const TERRACE_STEP = 1.7;
+const RISER_START = 0.86;
 
 export class Terrain {
   constructor(hunt, quality) {
@@ -17,7 +22,8 @@ export class Terrain {
     this.kind = hunt.terrain.kind;
     this.noise = new Noise2D(hunt.seed);
     this.noise2 = new Noise2D(hunt.seed * 7 + 3);
-    this.N = quality === 'low' ? 360 : quality === 'medium' ? 560 : 760;
+    this.N = { low: 360, medium: 560, high: 760, ultra: 880 }[quality] || 760;
+    this.castShadows = tierSettings(quality).shadows;
     this.step = CORE_SIZE / this.N;
     this.heights = null;
     this.mask = null; // RGBA: forest, field, terrace, snow
@@ -99,7 +105,7 @@ export class Terrain {
     // short steep riser that the shader paints as a dry-stone wall.
     const H = new Float32Array(raw.length);
     const terrace = new Float32Array(raw.length);
-    const stepH = 1.7;
+    const stepH = TERRACE_STEP;
     for (let j = 0; j <= N; j++) {
       for (let i = 0; i <= N; i++) {
         const k = j * (N + 1) + i;
@@ -118,7 +124,7 @@ export class Terrain {
         if (tm > 0) {
           const t = h / stepH;
           const f = t - Math.floor(t);
-          const q = (Math.floor(t) + smoothstep(0.78, 1.0, f)) * stepH;
+          const q = (Math.floor(t) + smoothstep(RISER_START, 1.0, f)) * stepH;
           H[k] = lerp(h, q, tm);
         } else {
           H[k] = h;
@@ -243,54 +249,69 @@ export class Terrain {
     const mat = await this.makeMaterial(true);
     const matOuter = await this.makeMaterial(false);
 
-    // Core
+    // Core, split into tiles so the camera and the sharp shadow map only draw
+    // the pieces they can see. The ground casts shadows too: hills and
+    // terrace risers shade the land behind them when the sun is low.
+    scene.userData.terrain = this;
     const N = this.N;
     const w = N + 1;
     const half = CORE_SIZE / 2;
-    const pos = new Float32Array(w * w * 3);
-    const nor = new Float32Array(w * w * 3);
     const H = this.heights;
-    for (let j = 0; j <= N; j++) {
-      for (let i = 0; i <= N; i++) {
-        const k = j * w + i;
-        pos[k * 3] = -half + i * this.step;
-        pos[k * 3 + 1] = H[k];
-        pos[k * 3 + 2] = -half + j * this.step;
-        const hl = H[j * w + Math.max(0, i - 1)];
-        const hr = H[j * w + Math.min(N, i + 1)];
-        const hd = H[Math.max(0, j - 1) * w + i];
-        const hu = H[Math.min(N, j + 1) * w + i];
-        let nx = hl - hr;
-        let ny = 2 * this.step;
-        let nz = hd - hu;
-        const l = Math.hypot(nx, ny, nz);
-        nor[k * 3] = nx / l;
-        nor[k * 3 + 1] = ny / l;
-        nor[k * 3 + 2] = nz / l;
+    const TILES = 8;
+    const per = N / TILES;
+    const tw = per + 1;
+    this.tiles = [];
+    for (let ty = 0; ty < TILES; ty++) {
+      for (let tx = 0; tx < TILES; tx++) {
+        const pos = new Float32Array(tw * tw * 3);
+        const nor = new Float32Array(tw * tw * 3);
+        for (let jj = 0; jj <= per; jj++) {
+          const j = ty * per + jj;
+          for (let ii = 0; ii <= per; ii++) {
+            const i = tx * per + ii;
+            const k = j * w + i;
+            const o = (jj * tw + ii) * 3;
+            pos[o] = -half + i * this.step;
+            pos[o + 1] = H[k];
+            pos[o + 2] = -half + j * this.step;
+            const hl = H[j * w + Math.max(0, i - 1)];
+            const hr = H[j * w + Math.min(N, i + 1)];
+            const hd = H[Math.max(0, j - 1) * w + i];
+            const hu = H[Math.min(N, j + 1) * w + i];
+            const nx = hl - hr;
+            const ny = 2 * this.step;
+            const nz = hd - hu;
+            const l = Math.hypot(nx, ny, nz);
+            nor[o] = nx / l;
+            nor[o + 1] = ny / l;
+            nor[o + 2] = nz / l;
+          }
+        }
+        const idx = new Uint32Array(per * per * 6);
+        let p = 0;
+        for (let j = 0; j < per; j++) {
+          for (let i = 0; i < per; i++) {
+            const a = j * tw + i;
+            const b = a + 1;
+            const c = a + tw;
+            const d = c + 1;
+            idx[p++] = a; idx[p++] = c; idx[p++] = b;
+            idx[p++] = b; idx[p++] = c; idx[p++] = d;
+          }
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+        geo.setIndex(new THREE.BufferAttribute(idx, 1));
+        geo.computeBoundingSphere();
+        geo.computeBoundingBox();
+        const tile = new THREE.Mesh(geo, mat);
+        tile.receiveShadow = true;
+        tile.castShadow = this.castShadows;
+        scene.add(tile);
+        this.tiles.push(tile);
       }
     }
-    const idx = new Uint32Array(N * N * 6);
-    let p = 0;
-    for (let j = 0; j < N; j++) {
-      for (let i = 0; i < N; i++) {
-        const a = j * w + i;
-        const b = a + 1;
-        const c = a + w;
-        const d = c + 1;
-        idx[p++] = a; idx[p++] = c; idx[p++] = b;
-        idx[p++] = b; idx[p++] = c; idx[p++] = d;
-      }
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-    geo.setIndex(new THREE.BufferAttribute(idx, 1));
-    geo.computeBoundingSphere();
-    geo.computeBoundingBox();
-    const core = new THREE.Mesh(geo, mat);
-    core.receiveShadow = true;
-    scene.add(core);
-    this.coreMesh = core;
 
     // Outer ring (radial spacing grows with distance)
     const RN = 240;
@@ -328,20 +349,147 @@ export class Terrain {
     scene.add(outer);
     this.outerMesh = outer;
 
+    if (this.kind === 'terraces') await this.buildTerraceWalls(scene);
     if (this.hunt.terrain.seaWest) this.buildSea(scene);
+  }
+
+  // Dry-stone terrace walls (سناسل): a vertical stone face along the middle
+  // of every riser, from the lower bed up to the upper bed, with a flat cap
+  // reaching back over the bank. Traced as contour lines of the raw height
+  // (marching squares) and built per terrain tile; hidden beyond ~280 m where
+  // the ground texture's wall pattern takes over.
+  async buildTerraceWalls(scene) {
+    const [wallD, wallN] = await Promise.all([loadTex('stacked_stone_wall_diff.jpg', true), loadTex('stacked_stone_wall_nor_gl.jpg')]);
+    const mat = new THREE.MeshStandardMaterial({ map: wallD, normalMap: wallN, roughness: 0.95, color: 0xffffff });
+    // the photo is of reddish sandstone; Lebanese walls are pale limestone
+    mat.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <map_fragment>',
+        `#include <map_fragment>
+        float wl = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+        diffuseColor.rgb = mix(vec3(wl), diffuseColor.rgb, 0.35) * vec3(1.32, 1.28, 1.2);`
+      );
+    };
+    mat.customProgramCacheKey = () => 'terrace-wall';
+    const N = this.N;
+    const w = N + 1;
+    const step = this.step;
+    const half = CORE_SIZE / 2;
+    const raw = this.rawGrid;
+    const stepH = TERRACE_STEP;
+    const mid = (RISER_START + 1) / 2; // riser centre, as a fraction of a step
+    const TILES = 8;
+    const per = N / TILES;
+    const tileSize = CORE_SIZE / TILES;
+    const UVS = 1 / 2.2; // texture repeats every 2.2 m
+    this.wallGroup = new THREE.Group();
+    const lerpEdge = (va, vb, iso) => (iso - va) / (vb - va || 1e-6);
+    for (let ty = 0; ty < TILES; ty++) {
+      for (let tx = 0; tx < TILES; tx++) {
+        const pos = [];
+        const nor = [];
+        const uv = [];
+        const quad = (a, b, c, d, n, ua, ub, va, vb) => {
+          pos.push(...a, ...b, ...c, ...a, ...c, ...d);
+          for (let k = 0; k < 6; k++) nor.push(...n);
+          uv.push(ua, va, ub, va, ub, vb, ua, va, ub, vb, ua, vb);
+        };
+        for (let jj = 0; jj < per; jj++) {
+          const j = ty * per + jj;
+          for (let ii = 0; ii < per; ii++) {
+            const i = tx * per + ii;
+            const x0 = -half + i * step;
+            const z0 = -half + j * step;
+            const tm = this.terraceGrid[j * w + i];
+            if (tm < 0.72 || this.road(x0 + step / 2, z0 + step / 2) < 6) continue;
+            const a = raw[j * w + i];
+            const b = raw[j * w + i + 1];
+            const c = raw[(j + 1) * w + i + 1];
+            const d = raw[(j + 1) * w + i];
+            const lo = Math.min(a, b, c, d);
+            const hi = Math.max(a, b, c, d);
+            // gradient (uphill) across the cell
+            const gx = (b - a + c - d) / (2 * step);
+            const gz = (d - a + c - b) / (2 * step);
+            const gl = Math.hypot(gx, gz);
+            if (gl < 0.02) continue;
+            const nx = -gx / gl;
+            const nz = -gz / gl; // faces downhill
+            for (let k = Math.floor(lo / stepH - mid); k <= Math.floor(hi / stepH - mid) + 1; k++) {
+              const iso = (k + mid) * stepH;
+              if (iso <= lo || iso >= hi) continue;
+              // marching squares: crossing points on the cell's four edges
+              const pts = [];
+              if ((a < iso) !== (b < iso)) pts.push([x0 + step * lerpEdge(a, b, iso), z0]);
+              if ((b < iso) !== (c < iso)) pts.push([x0 + step, z0 + step * lerpEdge(b, c, iso)]);
+              if ((d < iso) !== (c < iso)) pts.push([x0 + step * lerpEdge(d, c, iso), z0 + step]);
+              if ((a < iso) !== (d < iso)) pts.push([x0, z0 + step * lerpEdge(a, d, iso)]);
+              if (pts.length < 2) continue;
+              const segs = pts.length === 4 ? [[pts[0], pts[1]], [pts[2], pts[3]]] : [[pts[0], pts[1]]];
+              const low = k * stepH;
+              const top = ((k + 1) * stepH) * tm + iso * (1 - tm) + 0.06;
+              const bot = low * tm + iso * (1 - tm) - 0.45;
+              // cap reaches back over the bank to where it meets the upper bed
+              const capD = Math.min(1.6, Math.max(0.55, ((1 - mid) * stepH) / gl + 0.15));
+              for (let [p, q] of segs) {
+                // wind the face so it looks downhill
+                const ex = q[0] - p[0];
+                const ez = q[1] - p[1];
+                if (ex * nz - ez * nx < 0) [p, q] = [q, p];
+                const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+                const u0 = (p[0] + p[1]) * UVS;
+                const u1 = u0 + len * UVS;
+                // front face
+                quad([p[0], bot, p[1]], [q[0], bot, q[1]], [q[0], top, q[1]], [p[0], top, p[1]], [nx, 0, nz], u0, u1, bot * UVS, top * UVS);
+                // cap
+                const pb = [p[0] - nx * capD, top, p[1] - nz * capD];
+                const qb = [q[0] - nx * capD, top, q[1] - nz * capD];
+                quad([p[0], top, p[1]], [q[0], top, q[1]], qb, pb, [0, 1, 0], u0, u1, 0, capD * UVS);
+              }
+            }
+          }
+        }
+        if (!pos.length) continue;
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+        geo.computeBoundingSphere();
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = this.castShadows;
+        mesh.receiveShadow = true;
+        const lod = new THREE.LOD();
+        lod.position.set(-half + (tx + 0.5) * tileSize, this.hunt.terrain.baseHeight, -half + (ty + 0.5) * tileSize);
+        mesh.position.copy(lod.position).negate();
+        lod.addLevel(mesh, 0);
+        lod.addLevel(new THREE.Object3D(), 280 + tileSize * 0.7);
+        this.wallGroup.add(lod);
+      }
+    }
+    scene.add(this.wallGroup);
   }
 
   buildSea(scene) {
     const geo = new THREE.PlaneGeometry(40000, 40000, 1, 1);
     geo.rotateX(-Math.PI / 2);
+    // Two layers of small waves scrolling different ways: the base normal map
+    // for the swell, the clear-coat normal map for the chop. With a near-mirror
+    // clear coat the low sun scatters into a glittering path on the water.
     const normalTex = makeWaterNormal();
-    normalTex.repeat.set(900, 900);
+    normalTex.repeat.set(1400, 1400);
+    const chop = normalTex.clone();
+    chop.repeat.set(4200, 4200);
+    chop.needsUpdate = true;
     const mat = new THREE.MeshPhysicalMaterial({
-      color: 0x0f3550,
-      roughness: 0.12,
+      color: 0x0d3048,
+      roughness: 0.22,
       metalness: 0.0,
       normalMap: normalTex,
-      normalScale: new THREE.Vector2(0.35, 0.35),
+      normalScale: new THREE.Vector2(0.45, 0.45),
+      clearcoat: 1,
+      clearcoatRoughness: 0.04,
+      clearcoatNormalMap: chop,
+      clearcoatNormalScale: new THREE.Vector2(0.6, 0.6),
       envMapIntensity: 1.0,
     });
     const sea = new THREE.Mesh(geo, mat);
@@ -349,12 +497,15 @@ export class Terrain {
     scene.add(sea);
     this.sea = sea;
     this.seaNormal = normalTex;
+    this.seaChop = chop;
   }
 
   update(dt) {
     if (this.seaNormal) {
-      this.seaNormal.offset.x += dt * 0.002;
-      this.seaNormal.offset.y += dt * 0.0013;
+      this.seaNormal.offset.x += dt * 0.0016;
+      this.seaNormal.offset.y += dt * 0.001;
+      this.seaChop.offset.x -= dt * 0.0011;
+      this.seaChop.offset.y += dt * 0.0019;
     }
   }
 

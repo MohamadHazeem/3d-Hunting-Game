@@ -2,17 +2,22 @@ import * as THREE from 'three';
 import { hash2 } from '../core/rng.js';
 import { makeGrassTexture } from './foliageTextures.js';
 import { windUniforms } from './vegetation.js';
+import { tierSettings } from '../gfx/quality.js';
+import { NearGround } from './ground.js';
 
 // Dense tufts of dry grass around the player, rebuilt as you walk.
 
 const CELL = 4;
+// where the hunter is standing, so the tufts can bend away underfoot
+const uPlayer = { value: new THREE.Vector3(0, -1e5, 0) };
 
 export class Grass {
   constructor(hunt, terrain, quality) {
     this.hunt = hunt;
     this.terrain = terrain;
-    this.radius = quality === 'low' ? 28 : quality === 'medium' ? 42 : 56;
-    this.perCell = quality === 'low' ? 10 : quality === 'medium' ? 16 : 22;
+    this.quality = quality;
+    this.radius = { low: 28, medium: 42, high: 56, ultra: 70 }[quality] ?? 56;
+    this.perCell = { low: 10, medium: 16, high: 22, ultra: 26 }[quality] ?? 22;
     this.capacity = Math.ceil((Math.PI * this.radius * this.radius) / (CELL * CELL) * this.perCell * (hunt.terrain.kind === 'plain' ? 1.5 : 1)) + 200;
     this.center = new THREE.Vector2(1e9, 1e9);
     this.height = hunt.terrain.kind === 'plain' ? 0.38 : 0.5;
@@ -45,6 +50,7 @@ export class Grass {
     const mat = new THREE.MeshStandardMaterial({
       map: tex,
       alphaTest: 0.5,
+      alphaToCoverage: tierSettings(this.quality).msaa > 0,
       side: THREE.DoubleSide,
       roughness: 0.9,
       color: new THREE.Color(tint[0] * 1.15, tint[1] * 1.15, tint[2] * 1.15),
@@ -53,8 +59,9 @@ export class Grass {
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = windUniforms.uTime;
       shader.uniforms.uWind = windUniforms.uWind;
+      shader.uniforms.uPlayer = uPlayer;
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;')
+        .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;\nuniform vec3 uPlayer;')
         .replace(
           '#include <begin_vertex>',
           `#include <begin_vertex>
@@ -67,6 +74,14 @@ export class Grass {
             float ph = ip.x * 0.4 + ip.z * 0.3;
             transformed.x += (sin(uTime * 1.8 + ph) * 0.12 + sin(uTime * 4.1 + ph * 2.0) * 0.04) * k * uWind;
             transformed.z += cos(uTime * 1.5 + ph) * 0.07 * k * uWind;
+            // pressed down and pushed aside where the hunter walks
+            vec2 away = ip.xz - uPlayer.xz;
+            float pd = length(away);
+            float push = (1.0 - smoothstep(0.25, 1.15, pd)) * step(abs(ip.y - uPlayer.y), 1.5);
+            vec3 wpush = vec3(away / max(pd, 0.05), 0.0).xzy * push * 0.45 * k;
+            vec3 c0 = instanceMatrix[0].xyz, c1 = instanceMatrix[1].xyz, c2 = instanceMatrix[2].xyz;
+            transformed += vec3(dot(c0, wpush) / dot(c0, c0), dot(c1, wpush) / dot(c1, c1), dot(c2, wpush) / dot(c2, c2));
+            transformed.y *= 1.0 - push * 0.45 * k;
           }`
         );
       // two-sided cards: don't flip the normal on the back face
@@ -81,9 +96,15 @@ export class Grass {
     this.mesh.frustumCulled = false;
     this.mesh.receiveShadow = true;
     scene.add(this.mesh);
+
+    // pebbles, thistles and terrace-wall stones around the hunter
+    this.near = new NearGround(this.hunt, this.terrain, tierSettings(this.quality));
+    this.near.build(scene).catch((e) => console.warn('ground detail', e));
   }
 
   update(playerPos) {
+    uPlayer.value.copy(playerPos);
+    if (this.near) this.near.update(playerPos);
     if (this.center.distanceTo(new THREE.Vector2(playerPos.x, playerPos.z)) < 6) return;
     this.center.set(playerPos.x, playerPos.z);
     const R = this.radius;

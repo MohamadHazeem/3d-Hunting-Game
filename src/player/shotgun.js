@@ -73,7 +73,7 @@ function engravingTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#a9a9a6';
+  ctx.fillStyle = '#7d7c78'; // old coin-finished steel, not a mirror
   ctx.fillRect(0, 0, 256, 256);
   ctx.strokeStyle = 'rgba(40,40,40,0.55)';
   ctx.lineWidth = 1.2;
@@ -94,7 +94,7 @@ function engravingTexture() {
 export function buildShotgunModel() {
   const gun = new THREE.Group();
   const steel = new THREE.MeshStandardMaterial({ color: 0x18191c, metalness: 0.9, roughness: 0.32 });
-  const silver = new THREE.MeshStandardMaterial({ map: engravingTexture(), metalness: 1.0, roughness: 0.28 });
+  const silver = new THREE.MeshStandardMaterial({ map: engravingTexture(), metalness: 0.85, roughness: 0.42 });
   const wood = new THREE.MeshStandardMaterial({ map: walnutTexture(), roughness: 0.45, metalness: 0 });
   const rubber = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
 

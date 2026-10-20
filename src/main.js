@@ -15,6 +15,8 @@ import { Dog } from './dog/dog.js';
 import { Particles, ShellHulls } from './player/effects.js';
 import { Input } from './core/input.js';
 import { setMaxAnisotropy } from './core/assets.js';
+import { resolveQuality, tierSettings, gfxSettings, setRenderScale, getQualityInfo } from './gfx/quality.js';
+import { GfxPipeline } from './gfx/pipeline.js';
 import { audio, VOLUME_DEFAULTS } from './audio/audio.js';
 import { Companion } from './audio/companion.js';
 import { settings, setSetting, onSettingChange, bindSettings } from './core/settings.js';
@@ -96,6 +98,11 @@ function setupSettingsPanel() {
 
 function openSettings() {
   $('settings').classList.remove('hidden');
+  const rs = $('renderScale');
+  rs.value = gfxSettings.renderScale == null ? '' : String(gfxSettings.renderScale);
+  rs.onchange = () => setRenderScale(rs.value === '' ? null : parseFloat(rs.value));
+  const q = getQualityInfo();
+  $('gfxInfo').textContent = q.tier ? `Running at ${q.tier}${q.requested === 'auto' ? ' (picked automatically)' : ''} · ${q.gpu || 'graphics card unknown'} · ${q.fps || '—'} fps · render scale ${Math.round((q.renderScale || 1) * 100)}%` : '';
 }
 
 function closeSettings() {
@@ -227,15 +234,16 @@ class Game {
   }
 
   async build() {
-    const q = this.quality;
     const canvas = $('game');
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: q !== 'low', powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, q === 'high' ? 2 : q === 'medium' ? 1.5 : 1));
+    // anti-aliasing happens in the post-processing pipeline (MSAA render target)
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
     renderer.setSize(innerWidth, innerHeight);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.6;
-    renderer.shadowMap.enabled = q !== 'low';
+    // 'auto' becomes a concrete tier here (GPU name + a quick benchmark)
+    const q = (this.quality = await resolveQuality(this.quality, renderer));
+    renderer.shadowMap.enabled = tierSettings(q).shadows;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     setMaxAnisotropy(Math.min(8, renderer.capabilities.getMaxAnisotropy()));
     this.renderer = renderer;
@@ -245,6 +253,7 @@ class Game {
     const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 24000);
     scene.add(camera);
     this.camera = camera;
+    this.gfx = new GfxPipeline(renderer, scene, camera, q);
 
     this.progress(0.02, 'Shaping the mountains…');
     await nextFrame();
@@ -398,6 +407,7 @@ class Game {
     const w = innerWidth;
     const h = innerHeight;
     this.renderer.setSize(w, h);
+    this.gfx.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.fx.setViewportHeight(h * this.renderer.getPixelRatio(), this.camera.fov);
@@ -934,7 +944,7 @@ class Game {
     audio.setListener(this.camera);
     this.updateHud();
     this.updateFps();
-    this.renderer.render(this.scene, this.camera);
+    this.gfx.render(this);
     input.endFrame();
   }
 

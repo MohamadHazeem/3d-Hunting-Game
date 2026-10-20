@@ -3,7 +3,7 @@
 
 const DEFAULTS = {
   name: '',
-  quality: 'medium',
+  quality: 'auto',
   sens: 1,
   adsSens: 0.85,
   invertY: false,
