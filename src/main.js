@@ -9,7 +9,7 @@ import { Structures } from './world/structures.js';
 import { Atmosphere } from './world/sky.js';
 import { BirdManager } from './birds/birds.js';
 import { Player } from './player/player.js';
-import { Shotgun, CHOKES } from './player/shotgun.js';
+import { Shotgun, CHOKES, CHOKE_TYPES, SHOT_SIZES, fitChokes } from './player/shotgun.js';
 import { PatternBoards } from './player/boards.js';
 import { Dog } from './dog/dog.js';
 import { Particles, ShellHulls } from './player/effects.js';
@@ -289,6 +289,8 @@ class Game {
     this.gun = new Shotgun(camera, scene, this.world, this.fx, this.hulls);
     this.gun.onShot = (o, d, b) => this.onLocalShot(o, d, b);
     this.gun.wind = this.wind.vec;
+    fitChokes(settings.choke0, settings.choke1);
+    this.gun.setShotSize(settings.shotSize);
     this.gun.onBirdHits = (id, n, imp, dist) => this.onLocalHits(id, n, imp, dist);
 
     const spawn = this.findSpawn();
@@ -296,7 +298,7 @@ class Game {
     this.boards = new PatternBoards(scene, terrain, veg, this.player.pos, spawn.yaw);
     this.gun.boards = this.boards;
     this.gun.onShotResult = (r) => this.onShotResult(r);
-    this.gun.onBoardResult = (res, barrel) => this.onBoardResult(res, barrel);
+    this.gun.onBoardResult = (res, shot) => this.onBoardResult(res, shot);
     if (settings.dog) {
       this.dog = new Dog(scene, this.world, {
         myId: this.myId,
@@ -588,10 +590,41 @@ class Game {
     this.player.addRecoil(0.055);
     const me = this.players.get(this.myId);
     if (this.authority) me.shots++;
+    this.checkSafety(o, d);
     if (this.net) {
       const m = { t: 'shot', id: this.myId, o: o.toArray().map((v) => +v.toFixed(2)), d: d.toArray().map((v) => +v.toFixed(4)), b };
       this.net.broadcast(m);
     }
+  }
+
+  // A real hunter never swings through another hunter or his dog. A shot
+  // whose line passes near one costs points.
+  checkSafety(o, d) {
+    const inLine = (p, chestY, maxD, slack) => {
+      const v = new THREE.Vector3(p.x - o.x, p.y + chestY - o.y, p.z - o.z);
+      const dist = v.length();
+      if (dist > maxD || dist < 1) return false;
+      const along = v.dot(d);
+      if (along <= 0) return false;
+      const off = Math.sqrt(Math.max(0, dist * dist - along * along));
+      return off < slack + dist * 0.035;
+    };
+    for (const p of this.players.values()) {
+      if (p.me) continue;
+      if (inLine(p.pos, 1.2, 90, 0.6)) {
+        const me = this.players.get(this.myId);
+        me.score -= 50;
+        this.hud.message(`Unsafe shot — ${p.name} was in your line! −50 · انتبه عرفيقك`, 'warn');
+        this.updateHudStats();
+        if (this.net) this.net.broadcast({ t: 'chat', from: '⚠', text: `${settings.name} fired towards ${p.name}` });
+        return;
+      }
+      if (p.dog && inLine(p.dog.pos, 0.5, 50, 0.4)) {
+        this.hud.message(`Careful — ${p.name}'s dog was in your line! · انتبه عالكلب`, 'warn');
+        return;
+      }
+    }
+    if (this.dog && inLine(this.dog.pos, 0.5, 50, 0.4)) this.hud.message('Careful — your dog was in the line of fire! · انتبه عالكلب', 'warn');
   }
 
   remoteShot(m) {
@@ -615,7 +648,7 @@ class Game {
 
   // What happened to a shot of yours, once the pellets have passed.
   onShotResult(r) {
-    const entry = { hour: this.atmo.hour, time: this.clock.elapsedTime, loadId: this.gun.loadId || 0, barrel: r.barrel, spId: r.spId || null, dist: r.dist || 0, hits: r.hits || 0, lat: r.lat || 0, along: r.along || 0, result: 'miss', how: '' };
+    const entry = { hour: this.atmo.hour, time: this.clock.elapsedTime, loadId: this.gun.loadId || 0, barrel: r.barrel, choke: r.choke || CHOKES[r.barrel].short, spId: r.spId || null, dist: r.dist || 0, hits: r.hits || 0, lat: r.lat || 0, along: r.along || 0, result: 'miss', how: '' };
     if (r.target) {
       const sp = SPECIES[r.spId];
       entry.result = r.hits >= sp.toughness ? 'kill' : r.hits > 0 ? 'wound' : 'miss';
@@ -642,10 +675,10 @@ class Game {
     if (this.net) this.net.broadcast(this.scoresMsg());
   }
 
-  onBoardResult(res, barrel) {
+  onBoardResult(res, shot) {
     for (const b of res) {
-      const pct = Math.round((b.inCircle / 400) * 100);
-      this.hud.message(`Board at ${b.dist.toFixed(0)} m · ${CHOKES[barrel].name}: ${b.onBoard} pellets on the paper, ${b.inCircle} in the 75 cm circle (${pct}%)`, 'info');
+      const pct = Math.round((b.inCircle / shot.spec.pellets) * 100);
+      this.hud.message(`Board at ${b.dist.toFixed(0)} m · ${shot.choke.name}, ${shot.spec.name}: ${b.onBoard} pellets on the paper, ${b.inCircle} in the 75 cm circle (${pct}%)`, 'info');
     }
   }
 
@@ -1011,7 +1044,7 @@ function summaryHtml(me, log, hunt, challengesDone = []) {
       const hh = Math.floor(e.hour);
       const mm = String(Math.floor((e.hour - hh) * 60)).padStart(2, '0');
       const res = { kill: 'down', wound: 'hit', miss: 'miss' }[e.result];
-      return `<tr><td>${hh}:${mm}</td><td>${sp ? `<span class="ar">${sp.ar}</span> ${sp.en}` : '—'}</td><td>${e.dist ? e.dist.toFixed(0) + ' m' : ''}</td><td>${CHOKES[e.barrel].short}</td><td class="res-${e.result}">${res}</td><td>${e.result === 'kill' ? e.hits + ' pellets' : e.how || ''}</td></tr>`;
+      return `<tr><td>${hh}:${mm}</td><td>${sp ? `<span class="ar">${sp.ar}</span> ${sp.en}` : '—'}</td><td>${e.dist ? e.dist.toFixed(0) + ' m' : ''}</td><td>${e.choke}</td><td class="res-${e.result}">${res}</td><td>${e.result === 'kill' ? e.hits + ' pellets' : e.how || ''}</td></tr>`;
     })
     .join('');
   return `<div class="stats">${stat(bagged, 'birds in the bag')}${stat(me.score, 'score')}${stat(log.length, 'shots')}${stat(pct + '%', 'birds per shot')}${stat(longest ? longest.toFixed(0) + ' m' : '—', 'longest kill')}${stat(avg ? avg.toFixed(0) + ' m' : '—', 'average shot')}</div>

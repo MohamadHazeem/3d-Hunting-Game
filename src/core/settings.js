@@ -14,6 +14,9 @@ const DEFAULTS = {
   shotFeedback: true,
   markers: true,
   dog: true,
+  choke0: 'IC',
+  choke1: 'F',
+  shotSize: '8',
 };
 
 function read(k, d) {

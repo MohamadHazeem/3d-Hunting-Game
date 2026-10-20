@@ -177,8 +177,8 @@ export class PatternBoards {
       if (B.shotId !== shotId || B.reported === shotId) continue;
       B.reported = shotId;
       let best = { n: 0, u: 0, v: 0 };
-      for (let u = -0.3; u <= 0.3; u += 0.05) {
-        for (let v = -0.3; v <= 0.3; v += 0.05) {
+      for (let u = -0.45; u <= 0.45; u += 0.05) {
+        for (let v = -0.45; v <= 0.45; v += 0.05) {
           let n = 0;
           for (const [hu, hv] of B.hits) if ((hu - u) ** 2 + (hv - v) ** 2 < CIRCLE_R * CIRCLE_R) n++;
           if (n > best.n) best = { n, u, v };
@@ -192,6 +192,7 @@ export class PatternBoards {
       g.stroke();
       B.tex.needsUpdate = true;
       out.push({ dist: B.center.distanceTo(origin), onBoard: B.hits.length, inCircle: best.n });
+      B.hits = [];
     }
     return out;
   }

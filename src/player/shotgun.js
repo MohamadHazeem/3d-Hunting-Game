@@ -7,17 +7,39 @@ import { Random } from '../core/rng.js';
 // open to reload. Each shot is ~400 real #8 pellets flying with drag and
 // time of flight, so crossing birds need proper lead.
 
-const PELLETS = 400;
 const MUZZLE_V = 385; // m/s
-const DRAG = 0.0187; // quadratic drag: speed halves at ~37 m
-const MIN_LETHAL_V = 120;
-// Pattern spread (radians, 1 sigma) for the two chokes, set so the share of
+const DRAG = 0.0187; // quadratic drag for #8 shot: speed halves at ~37 m
+const MIN_LETHAL_V = 120; // for #8; smaller pellets need more speed
+
+// 32 g loads. Smaller shot means more pellets but each slows down sooner
+// and carries less energy.
+export const SHOT_SIZES = {
+  7.5: { name: '#7½', pellets: 350, dia: 2.41 },
+  8: { name: '#8', pellets: 410, dia: 2.29 },
+  9: { name: '#9', pellets: 580, dia: 2.03 },
+};
+function shotSpec(size) {
+  const s = SHOT_SIZES[size] || SHOT_SIZES[8];
+  const k = 2.29 / s.dia;
+  return { ...s, drag: DRAG * k, lethal: MIN_LETHAL_V * Math.sqrt(k ** 3) };
+}
+// Pattern spread (radians, 1 sigma) for each choke, set so the share of
 // pellets in a 75 cm circle at 36.6 m (40 yards) matches real patterning:
-// about 50% for Improved Cylinder and 70% for Full.
-export const CHOKES = [
-  { name: 'Improved Cylinder', short: 'IC', sigma: 0.0088 },
-  { name: 'Full', short: 'Full', sigma: 0.0067 },
-];
+// Cylinder 40%, Improved Cylinder 50%, Modified 60%, Improved Modified 65%,
+// Full 70%.
+export const CHOKE_TYPES = {
+  CYL: { name: 'Cylinder', short: 'Cyl', sigma: 0.0103 },
+  IC: { name: 'Improved Cylinder', short: 'IC', sigma: 0.0088 },
+  M: { name: 'Modified', short: 'Mod', sigma: 0.00767 },
+  IM: { name: 'Improved Modified', short: 'IM', sigma: 0.00717 },
+  F: { name: 'Full', short: 'Full', sigma: 0.0067 },
+};
+// the two barrels as currently fitted (lower barrel fires first)
+export const CHOKES = [CHOKE_TYPES.IC, CHOKE_TYPES.F];
+export function fitChokes(lower, upper) {
+  CHOKES[0] = CHOKE_TYPES[lower] || CHOKE_TYPES.IC;
+  CHOKES[1] = CHOKE_TYPES[upper] || CHOKE_TYPES.F;
+}
 let shotCounter = 0;
 
 function walnutTexture() {
@@ -202,6 +224,7 @@ export class Shotgun {
     this.onBoardResult = null; // ([{ dist, onBoard, inCircle }], barrel) -> void
     this.boards = null;
     this.wind = null; // THREE.Vector3, m/s
+    this.shot = shotSpec(8);
     this.lower = 0;
   }
 
@@ -289,6 +312,8 @@ export class Shotgun {
   spawnShot(origin, dir, barrel, local, seed = Math.random() * 1e9, target = null) {
     const r = new Random(seed | 0);
     const sigma = CHOKES[barrel].sigma;
+    const spec = this.shot;
+    const PELLETS = spec.pellets;
     const up = Math.abs(dir.y) > 0.95 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
     const right = new THREE.Vector3().crossVectors(dir, up).normalize();
     const up2 = new THREE.Vector3().crossVectors(right, dir).normalize();
@@ -312,7 +337,7 @@ export class Shotgun {
     }
     // trunks near the shot line block pellets
     const trunks = this.world.veg.treesNear(origin.x + dir.x * 40, origin.z + dir.z * 40, 50);
-    const shot = { id: ++shotCounter, barrel, pos, vel, alive, t: 0, local, origin: origin.clone(), dir: dir.clone(), hits: new Map(), done: new Set(), trunks };
+    const shot = { id: ++shotCounter, barrel, spec, choke: CHOKES[barrel], pos, vel, alive, t: 0, local, origin: origin.clone(), dir: dir.clone(), hits: new Map(), done: new Set(), trunks };
     if (local && target) {
       // a "ghost" pellet down the centre of the pattern, to see where the
       // pattern went relative to the bird
@@ -350,6 +375,8 @@ export class Shotgun {
       }
       const wx = this.wind ? this.wind.x : 0;
       const wz = this.wind ? this.wind.z : 0;
+      const PELLETS = s.spec.pellets;
+      const DRAG_K = s.spec.drag;
       for (let st = 0; st < steps; st++) {
         if (s.track) this.stepTrack(s, h, wx, wz);
         for (let i = 0; i < PELLETS; i++) {
@@ -362,7 +389,7 @@ export class Shotgun {
             continue;
           }
           // drag acts on the speed through the air, so a crosswind drifts the shot
-          const f = 1 / (1 + DRAG * Math.hypot(vx - wx, vy, vz - wz) * h);
+          const f = 1 / (1 + DRAG_K * Math.hypot(vx - wx, vy, vz - wz) * h);
           vx = wx + (vx - wx) * f;
           vy = vy * f - 9.81 * h;
           vz = wz + (vz - wz) * f;
@@ -376,7 +403,7 @@ export class Shotgun {
             const bird = birds.testSegment(a, b, s.done);
             if (bird) {
               s.alive[i] = 0;
-              if (sp > MIN_LETHAL_V) {
+              if (sp > s.spec.lethal) {
                 const n = (s.hits.get(bird.id) || 0) + 1;
                 s.hits.set(bird.id, n);
                 if (n >= bird.sp.toughness) {
@@ -434,7 +461,7 @@ export class Shotgun {
         }
         if (s.board && this.boards) {
           const res = this.boards.resolve(s.id, s.origin);
-          if (res.length && s.local && this.onBoardResult) this.onBoardResult(res, s.barrel);
+          if (res.length && s.local && this.onBoardResult) this.onBoardResult(res, s);
         }
       }
     }
@@ -446,7 +473,7 @@ export class Shotgun {
     const T = s.track;
     const g = T.gv;
     const sp = g.length();
-    const f = 1 / (1 + DRAG * Math.hypot(g.x - wx, g.y, g.z - wz) * h);
+    const f = 1 / (1 + s.spec.drag * Math.hypot(g.x - wx, g.y, g.z - wz) * h);
     g.x = wx + (g.x - wx) * f;
     g.y = g.y * f - 9.81 * h;
     g.z = wz + (g.z - wz) * f;
@@ -484,7 +511,8 @@ export class Shotgun {
       along: B.vel.dot(s.dir), // negative: coming towards you
       vert: B.vel.dot(up),
       pelletSpeed: B.speed,
-      spread: CHOKES[s.barrel].sigma * B.dist,
+      spread: s.choke.sigma * B.dist,
+      choke: s.choke.short,
     });
   }
 
@@ -493,6 +521,10 @@ export class Shotgun {
     const dist = p.distanceTo(s.origin);
     const impulse = s.dir.clone().multiplyScalar(1.5 + n * 0.3);
     if (this.onBirdHits) this.onBirdHits(bird.id, n, impulse, dist);
+  }
+
+  setShotSize(size) {
+    this.shot = shotSpec(size);
   }
 
   reload() {
