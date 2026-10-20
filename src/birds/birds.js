@@ -282,7 +282,7 @@ export class BirdManager {
     if (!w) return 0;
     const dawn = Math.exp(-(((hour - 7.2) / 1.6) ** 2));
     const dusk = Math.exp(-(((hour - 16.3) / 0.9) ** 2)) * 0.6;
-    const base = spId === 'fieldfare' ? 2.2 : spId === 'chaffinch' ? 2.0 : 3.0;
+    const base = { fieldfare: 2.2, chaffinch: 2.0, turtleDove: 1.6, woodpigeon: 1.2 }[spId] || 3.0;
     return base * w * (0.35 + dawn + dusk) * this.passage;
   }
 
@@ -448,7 +448,7 @@ export class BirdManager {
       this.flyoverTimer = 1;
       let flyCount = 0;
       for (const b of this.birds.values()) if (b.state === 'flying' && b.sp.behaviour !== 'ground') flyCount++;
-      for (const spId of ['songThrush', 'fieldfare', 'chaffinch']) {
+      for (const spId of ['songThrush', 'fieldfare', 'chaffinch', 'turtleDove', 'woodpigeon']) {
         const perSec = this.flyoverRate(spId, hour) / 60;
         if (flyCount < 70 && this.rnd.chance(perSec)) this.spawnFlock(spId, players);
       }
@@ -962,6 +962,10 @@ export class BirdManager {
         return 2 + Math.random() * 5;
       case 'pink':
         return 1.5 + Math.random() * 3;
+      case 'purr':
+      case 'coo':
+        // doves and pigeons are quiet in flight; they call from the trees
+        return b.state === 'perched' ? 4 + Math.random() * 9 : 99;
       default:
         return 99;
     }
@@ -977,7 +981,7 @@ export class BirdManager {
     b.yaw = Math.atan2(b.heading.x, b.heading.y) + this.rnd.float(-0.8, 0.8);
     b.pitch = -0.3;
     b.roll = 0;
-    b.alarm = { songThrush: 24, fieldfare: 32, chaffinch: 16 }[b.spId] || 20;
+    b.alarm = { songThrush: 24, fieldfare: 32, chaffinch: 16, turtleDove: 28, woodpigeon: 40 }[b.spId] || 20;
     b.act = 'look';
     b.actT = this.rnd.float(1, 3);
     b.hop = null;
@@ -1120,7 +1124,8 @@ export class BirdManager {
     b.heading.copy(dir);
     b.takeoffDur = b.takeoff = sp.takeoff ? sp.takeoff.dur : 0.5;
     b.vel.set(dir.x * 2, sp.takeoff ? sp.takeoff.vy : 3, dir.y * 2);
-    if (!g || g.members.length < 4 || this.rnd.chance(0.35)) audio.play('flap', b.pos, { gain: 0.6, ref: 5 });
+    // woodpigeons clap their wings loudly as they clatter out of a tree
+    if (!g || g.members.length < 4 || this.rnd.chance(0.35)) audio.play(sp.id === 'woodpigeon' ? 'wingClap' : 'flap', b.pos, { gain: sp.id === 'woodpigeon' ? 1 : 0.6, ref: 6 });
   }
 
   // ---------------- falling & dead ----------------

@@ -74,6 +74,35 @@ function plumageTexture(sp) {
       ctx.fillStyle = col.head;
       ctx.fillRect(0, 0, W, 10);
     }
+  } else if (P === 'turtle') {
+    // turtle dove: rufous feathers with black centres on the back, and the
+    // black-and-white striped patch on the side of the neck
+    for (let i = 0; i < 160; i++) {
+      const x = r.float(W * 0.35, W);
+      const y = r.float(0, H * 0.42);
+      ctx.fillStyle = '#c47f3e';
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 5, 3.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = marks;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 2.6, 1.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = i % 2 ? '#f2f0ea' : '#1c1a18';
+      ctx.fillRect(W * 0.12, H * 0.3 + i * 3, W * 0.08, 3);
+    }
+  } else if (P === 'pigeon') {
+    // woodpigeon: the white neck patch with a green-purple sheen around it
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = '#5d8a6e';
+    ctx.fillRect(W * 0.08, H * 0.22, W * 0.16, H * 0.16);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#f4f4f2';
+    ctx.fillRect(W * 0.12, H * 0.3, W * 0.07, H * 0.06);
   } else if (P === 'wingbars') {
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = '#6f8a5a'; // chaffinch olive-green rump
@@ -111,6 +140,22 @@ function wingTexture(sp) {
   if (sp.id === 'stork') {
     ctx.fillStyle = col.wingTip;
     ctx.fillRect(0, H * 0.45, W, H * 0.55); // black flight feathers
+  }
+  if (sp.pattern === 'pigeon') {
+    // the bold white band across the wing that flashes in flight
+    ctx.fillStyle = '#f4f4f2';
+    ctx.fillRect(W * 0.32, H * 0.55, W * 0.14, H * 0.45);
+  }
+  if (sp.pattern === 'turtle') {
+    // rufous coverts with dark centres
+    for (let i = 0; i < 70; i++) {
+      const x = r.float(0, W * 0.5);
+      const y = r.float(H * 0.45, H);
+      ctx.fillStyle = '#c47f3e';
+      ctx.fillRect(x, y, 7, 5);
+      ctx.fillStyle = '#2a201a';
+      ctx.fillRect(x + 2, y + 1.5, 3, 2);
+    }
   }
   if (sp.pattern === 'wingbars') {
     ctx.fillStyle = '#f4f2ea';

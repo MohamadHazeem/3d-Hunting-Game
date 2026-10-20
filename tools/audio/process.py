@@ -153,6 +153,7 @@ def main():
         "whirr": ["flush_quail_2", "flush_quail_1"], "clatter": ["flush_woodcock"], "flockFlush": ["flock_takeoff"],
         "flap": ["flap_2"], "land": ["land_1", "land_2"], "flutter": ["flutter_2"], "run": ["run_1"],
         "wingPass": ["wing_pass"], "thud": ["bird_thud"], "pickup": ["pickup"], "cloth": ["cloth"], "whistle": ["whistle_2"],
+        "wingClap": ["wing_clap_1", "wing_clap_2"],
         "farSheep": ["far_sheep"], "farBell": ["far_church_bell"], "farDog": ["far_dog"], "farRooster": ["far_rooster"],
     }
     for name, files in ONE.items():
@@ -205,6 +206,8 @@ def main():
         ("quail", ["quail_song_a", "quail_song_b"], (1500, 6000), 0.25, 1.2, 4),
         ("songThrush", ["thrush_song_a", "thrush_song_b"], (1500, 10000), 0.35, 4.0, 4),
         ("songChaffinch", ["chaffinch_song_a", "chaffinch_song_b"], (1800, 9000), 0.35, 3.5, 4),
+        ("purr", ["turtle_a", "turtle_b"], (250, 1600), 0.3, 2.5, 4),
+        ("coo", ["pigeon_a", "pigeon_b"], (220, 1400), 0.6, 4.0, 4),
     ]
     seen = set()
     for name, files, (lo, hi), gap, max_len, keep in BIRDS:

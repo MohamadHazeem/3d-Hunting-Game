@@ -168,6 +168,30 @@ const SYNTH = {
     ),
 };
 
+// turtle dove: a deep purring "turrr turrr"
+SYNTH.purr = (ctx) =>
+  makeBuffer(ctx, 1.6, (t) => {
+    let s = 0;
+    for (const n0 of [0, 0.75]) {
+      const dt = t - n0;
+      if (dt < 0 || dt > 0.6) continue;
+      const am = 0.5 + 0.5 * Math.sin(2 * Math.PI * 24 * dt);
+      s += Math.sin(2 * Math.PI * (560 - 60 * (dt / 0.6)) * dt) * am * Math.sin((dt / 0.6) * Math.PI);
+    }
+    return s * 0.35;
+  });
+// woodpigeon: the five-note "coo-COO-coo, coo-coo"
+SYNTH.coo = (ctx) =>
+  makeBuffer(ctx, 2.6, (t) => {
+    let s = 0;
+    for (const [n0, d, a] of [[0, 0.3, 0.7], [0.4, 0.5, 1], [1.0, 0.3, 0.8], [1.45, 0.28, 0.7], [1.85, 0.28, 0.6]]) {
+      const dt = t - n0;
+      if (dt < 0 || dt > d) continue;
+      const f = 420 + 40 * Math.sin((dt / d) * Math.PI);
+      s += (Math.sin(2 * Math.PI * f * dt) + 0.3 * Math.sin(4 * Math.PI * f * dt)) * Math.sin((dt / d) * Math.PI) * a;
+    }
+    return s * 0.3;
+  });
 SYNTH.hitConfirm = SYNTH.hit;
 
 const SPEED_OF_SOUND = 343;
@@ -188,7 +212,7 @@ const ROUTING = {
   land: ['effects', 3], hit: ['effects', 5], thud: ['effects', 4], flockFlush: ['effects', 6], run: ['effects', 3], hitConfirm: ['effects', 6], pickup: ['effects', 6], cloth: ['effects', 3], whistle: ['effects', 6],
   step: ['effects', 4], stepLeaves: ['effects', 4], stepGravel: ['effects', 4], stepStone: ['effects', 4], stepSnow: ['effects', 4],
   quail: ['birds', 4], tsip: ['birds', 3], chack: ['birds', 3], pink: ['birds', 3], woodcock: ['birds', 3], rattle: ['birds', 3],
-  songThrush: ['birds', 2], songChaffinch: ['birds', 2],
+  songThrush: ['birds', 2], songChaffinch: ['birds', 2], purr: ['birds', 3], coo: ['birds', 3],
   farSheep: ['ambience', 1], farBell: ['ambience', 1], farDog: ['ambience', 1], farRooster: ['ambience', 1],
 };
 
