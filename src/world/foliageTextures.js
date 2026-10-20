@@ -14,6 +14,57 @@ function hsl(h, s, l, a = 1) {
   return `hsla(${h},${s}%,${l}%,${a})`;
 }
 
+// Fraction of texels whose alpha is at least `ref` (0..255).
+function coverage(d, ref) {
+  let n = 0;
+  for (let i = 3; i < d.length; i += 4) if (d[i] >= ref) n++;
+  return n / (d.length / 4);
+}
+
+// Build the mip chain by hand, scaling each level's alpha so the share of
+// texels that pass the alpha test stays the same as at full size. Plain mip
+// averaging either thins leaves and grass to nothing in the distance or (where
+// blades overlap) fuses them into solid pale blocks.
+function coverageMips(level0, W, H, ref = 128) {
+  const target = coverage(level0, ref);
+  const mips = [{ data: level0, width: W, height: H }];
+  let src = level0;
+  let w = W;
+  let h = H;
+  while (w > 1 || h > 1) {
+    const nw = Math.max(1, w >> 1);
+    const nh = Math.max(1, h >> 1);
+    const avg = new Uint8Array(nw * nh * 4);
+    for (let y = 0; y < nh; y++) {
+      for (let x = 0; x < nw; x++) {
+        const x0 = Math.min(w - 1, x * 2), x1 = Math.min(w - 1, x * 2 + 1);
+        const y0 = Math.min(h - 1, y * 2), y1 = Math.min(h - 1, y * 2 + 1);
+        const a = (y0 * w + x0) * 4, b = (y0 * w + x1) * 4, c = (y1 * w + x0) * 4, e = (y1 * w + x1) * 4;
+        const o = (y * nw + x) * 4;
+        for (let k = 0; k < 4; k++) avg[o + k] = (src[a + k] + src[b + k] + src[c + k] + src[e + k] + 2) >> 2;
+      }
+    }
+    // binary-search an alpha scale that restores the original coverage
+    let lo = 0.25;
+    let hi = 6;
+    for (let it = 0; it < 12; it++) {
+      const s = (lo + hi) / 2;
+      let n = 0;
+      for (let i = 3; i < avg.length; i += 4) if (avg[i] * s >= ref) n++;
+      if (n / (avg.length / 4) < target) lo = s;
+      else hi = s;
+    }
+    const s = (lo + hi) / 2;
+    const out = new Uint8Array(avg);
+    for (let i = 3; i < out.length; i += 4) out[i] = Math.min(255, avg[i] * s);
+    mips.push({ data: out, width: nw, height: nh });
+    src = avg;
+    w = nw;
+    h = nh;
+  }
+  return mips;
+}
+
 // Canvas alpha is premultiplied, so fully transparent texels are black and
 // bleed dark fringes into leaves/grass when mip-mapped. Copy the pixels into a
 // DataTexture and fill the transparent texels with the average leaf colour.
@@ -43,7 +94,8 @@ export function bleedTexture(c) {
   }
   const t = new THREE.DataTexture(out, W, H, THREE.RGBAFormat);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.generateMipmaps = true;
+  t.mipmaps = coverageMips(out, W, H);
+  t.generateMipmaps = false;
   t.minFilter = THREE.LinearMipmapLinearFilter;
   t.magFilter = THREE.LinearFilter;
   t.anisotropy = 4;
@@ -191,25 +243,37 @@ export function makeGrassTexture(tint, dryness, seed = 7) {
   c.height = Hh;
   const ctx = c.getContext('2d');
   const r = new Random(seed);
-  for (let i = 0; i < 140; i++) {
-    const x0 = r.float(20, W - 20);
-    const h = r.float(0.45, 1) * Hh * 0.95;
-    const bend = r.float(-40, 40);
-    const dry = r.next() < dryness;
-    const hue = dry ? r.float(36, 48) : r.float(65, 95);
-    const sat = dry ? r.float(30, 52) : r.float(30, 45);
-    const lig = dry ? r.float(48, 68) : r.float(26, 40);
-    ctx.strokeStyle = hsl(hue, sat, lig);
-    ctx.lineWidth = r.float(1.2, 3);
+  // A real tuft: blades spring from a narrow clump and fan outwards, so the
+  // silhouette is a ragged fan rather than a rectangle. Blades are drawn back
+  // to front, darker and shadowed towards the base of the clump.
+  const blades = [];
+  for (let i = 0; i < 95; i++) {
+    const x0 = W / 2 + r.gauss() * W * 0.09;
+    const h = (0.35 + 0.65 * Math.pow(r.next(), 0.7)) * Hh * 0.96;
+    const lean = (x0 - W / 2) * r.float(1.2, 2.6) + r.float(-30, 30);
+    blades.push({ x0, h, lean, w: r.float(1.1, 2.6), dry: r.next() < dryness, k: r.next() });
+  }
+  blades.sort((a, b) => b.h - a.h); // tall ones behind
+  for (const b of blades) {
+    const hue = b.dry ? 36 + b.k * 14 : 62 + b.k * 30;
+    const sat = b.dry ? 30 + b.k * 22 : 30 + b.k * 16;
+    const lig = b.dry ? 46 + b.k * 22 : 24 + b.k * 16;
+    const g = ctx.createLinearGradient(0, Hh, 0, Hh - b.h);
+    g.addColorStop(0, hsl(hue - 6, sat * 0.8, lig * 0.45));
+    g.addColorStop(0.35, hsl(hue, sat, lig * 0.85));
+    g.addColorStop(1, hsl(hue + 2, sat, lig));
+    ctx.strokeStyle = g;
+    ctx.lineWidth = b.w;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(x0, Hh);
-    ctx.quadraticCurveTo(x0 + bend * 0.3, Hh - h * 0.6, x0 + bend, Hh - h);
+    ctx.moveTo(b.x0, Hh);
+    ctx.quadraticCurveTo(b.x0 + b.lean * 0.25, Hh - b.h * 0.6, b.x0 + b.lean, Hh - b.h);
     ctx.stroke();
-    if (dry && r.chance(0.25)) {
+    if (b.dry && b.k > 0.72) {
       // seed heads
-      ctx.fillStyle = hsl(hue - 4, sat, lig - 8);
+      ctx.fillStyle = hsl(hue - 4, sat, lig - 6);
       ctx.beginPath();
-      ctx.ellipse(x0 + bend, Hh - h, 2.5, 7, bend * 0.01, 0, Math.PI * 2);
+      ctx.ellipse(b.x0 + b.lean, Hh - b.h, 2.2, 6.5, b.lean * 0.008, 0, Math.PI * 2);
       ctx.fill();
     }
   }

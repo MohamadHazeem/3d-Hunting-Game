@@ -4,6 +4,8 @@ import { Random, hash2, smoothstep } from '../core/rng.js';
 import { CORE_SIZE } from './terrain.js';
 import { loadTex } from '../core/assets.js';
 import { makeFoliageTexture } from './foliageTextures.js';
+import { tierSettings } from '../gfx/quality.js';
+import { Rocks } from './rocks.js';
 
 // Procedural Lebanese trees: old olive trees, Palestine/kermes oak,
 // umbrella-shaped stone pine, Greek juniper and Lebanon cedar, plus low
@@ -226,10 +228,12 @@ const BUILDERS = { olive: buildOlive, oak: buildOak, pine: buildPine, juniper: b
 const BARK = { olive: 'bark_willow', oak: 'bark_brown_02', pine: 'pine_bark', juniper: 'bark_willow', cedar: 'bark_brown_02' };
 const VARIANTS = { olive: 3, oak: 3, pine: 2, juniper: 3, cedar: 2, shrub: 3 };
 
-function foliageMaterial(tex, tint) {
+function foliageMaterial(tex, tint, a2c) {
   const m = new THREE.MeshStandardMaterial({
     map: tex,
     alphaTest: 0.42,
+    // with MSAA, leaf edges become soft coverage instead of hard cut-outs
+    alphaToCoverage: a2c,
     side: THREE.DoubleSide,
     roughness: 0.82,
     metalness: 0,
@@ -309,7 +313,7 @@ export class Vegetation {
     this.clearing = avoid || { x: 1e9, z: 0, r: 0 };
     const veg = this.hunt.veg;
     const types = Object.keys(BUILDERS).filter((t) => veg[t] > 0);
-    const qMul = this.quality === 'low' ? 0.55 : this.quality === 'medium' ? 0.8 : 1;
+    const qMul = { low: 0.55, medium: 0.8, high: 1, ultra: 1.15 }[this.quality] ?? 1;
     const variants = {};
     const barkMats = {};
     const leafMats = {};
@@ -319,7 +323,7 @@ export class Vegetation {
     };
     for (const t of types) {
       const tex = makeFoliageTexture(t, this.hunt.seed + t.length * 13);
-      leafMats[t] = foliageMaterial(tex, tints[t]);
+      leafMats[t] = foliageMaterial(tex, tints[t], tierSettings(this.quality).msaa > 0);
       if (BARK[t]) {
         const [d, n] = await Promise.all([loadTex(`${BARK[t]}_diff.jpg`, true), loadTex(`${BARK[t]}_nor_gl.jpg`)]);
         barkMats[t] = new THREE.MeshStandardMaterial({
@@ -416,6 +420,16 @@ export class Vegetation {
       }
     }
     scene.add(this.group);
+
+    // boulders, outcrops and heaps of field stones
+    this.rocks = new Rocks(this.hunt, this.terrain, tierSettings(this.quality));
+    await this.rocks.build(scene, this.clearing);
+    this.rockGrid = new Map();
+    for (const st of this.rocks.stones) {
+      const k = `${Math.floor(st.x / 10)}:${Math.floor(st.z / 10)}`;
+      if (!this.rockGrid.has(k)) this.rockGrid.set(k, []);
+      this.rockGrid.get(k).push(st);
+    }
   }
 
   addTree(rec) {
@@ -442,8 +456,27 @@ export class Vegetation {
     return out;
   }
 
-  // Push a point (player) out of tree trunks.
+  // Push a point (player) out of tree trunks and big stones.
   collide(pos, radius) {
+    if (this.rockGrid) {
+      const cx = Math.floor(pos.x / 10);
+      const cz = Math.floor(pos.z / 10);
+      for (let j = -1; j <= 1; j++) {
+        for (let i = -1; i <= 1; i++) {
+          const cell = this.rockGrid.get(`${cx + i}:${cz + j}`);
+          if (!cell) continue;
+          for (const st of cell) {
+            const dx = pos.x - st.x;
+            const dz = pos.z - st.z;
+            const min = st.r + radius;
+            if (dx * dx + dz * dz > min * min || pos.y > st.y + st.h) continue;
+            const d = Math.hypot(dx, dz) || 1e-4;
+            pos.x = st.x + (dx / d) * min;
+            pos.z = st.z + (dz / d) * min;
+          }
+        }
+      }
+    }
     const near = this.treesNear(pos.x, pos.z, 4);
     for (const t of near) {
       const dx = pos.x - t.x;

@@ -249,7 +249,7 @@ export class Atmosphere {
     sunDirection.x = this.sunDir.x;
     sunDirection.y = this.sunDir.y;
     sunDirection.z = this.sunDir.z;
-    const sc = 0.5 * daylight * (0.6 + 0.8 * warm);
+    const sc = 0.36 * daylight * (0.6 + 0.8 * warm);
     sunScatter.x = sunCol.r * sc;
     sunScatter.y = sunCol.g * sc;
     sunScatter.z = sunCol.b * sc;
