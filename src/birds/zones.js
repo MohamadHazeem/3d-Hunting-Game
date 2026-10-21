@@ -55,7 +55,7 @@ const DEFS = {
 
 const TREE_PLACES = new Set(['olive', 'pine', 'oak', 'juniper', 'cedar']);
 // how many birds a zone holds, and how often a new party comes in (s)
-const TARGET = { feed: 9, roost: 16, drink: 6, groundFeed: 8, ground: 7 };
+const TARGET = { feed: 9, roost: 16, drink: 6, groundFeed: 8, ground: 7, line: 14 };
 const EVERY = { feed: [18, 30], roost: [10, 18], drink: [20, 34], groundFeed: [18, 30], line: [12, 22] };
 
 export class Zones {
@@ -210,6 +210,7 @@ export class Zones {
   // Keep each active zone stocked: a fresh party flies in when it runs low;
   // flight lines get a flock every so often while they're on.
   update(dt, birds, players, hour) {
+    let busy = null;
     for (const z of this.list) {
       const on = this.active(z, hour);
       z.t -= dt;
@@ -228,7 +229,9 @@ export class Zones {
       if (!on || z.t > 0) continue;
       const [a, b] = EVERY[z.kind];
       z.t = a + Math.random() * (b - a);
-      if (z.kind !== 'line' && birds.zoneCount(z.id) >= TARGET[z.kind]) continue;
+      if (birds.zoneCount(z.id, z.kind === 'line') >= TARGET[z.kind]) continue;
+      busy = busy ?? birds.activeCount();
+      if (busy > 120) continue;
       birds.spawnZoneFlock(z, players);
     }
   }

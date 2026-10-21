@@ -132,6 +132,7 @@ export class BirdManager {
     this.weather = null; // the day's Weather (rain, snow, fog 0..1), set by the Game
     this.sunset = 17.5; // hour of sunset (the evening flight is keyed to it), set by the Game
     this.firstFlockAt = 3; // a flock comes past within the first ~20 s of the hunt
+    this.viewer = null; // the camera position, for level of detail
   }
 
   // ---------------- weather ----------------
@@ -394,13 +395,22 @@ export class BirdManager {
     return this.spawnFlock(z.sp, players, opts);
   }
 
-  // How many of a zone's birds are there (or on their way in).
-  zoneCount(id) {
+  // How many of a zone's birds are there (or on their way in); for a flight
+  // line, how many are flying it.
+  zoneCount(id, line = false) {
     let n = 0;
     for (const b of this.birds.values()) {
       if (b.zone !== id) continue;
-      if (b.state === 'perched' || b.state === 'hidden' || b.state === 'running' || (b.state === 'flying' && b.mode === 'toPerch')) n++;
+      if (line ? b.state === 'flying' : b.state === 'perched' || b.state === 'hidden' || b.state === 'running' || (b.state === 'flying' && b.mode === 'toPerch')) n++;
     }
+    return n;
+  }
+
+  // Birds out and about (not sitting hidden, not lying dead): a cap on how
+  // busy the sky gets, for the frame rate's sake.
+  activeCount() {
+    let n = 0;
+    for (const b of this.birds.values()) if (b.state !== 'hidden' && b.state !== 'dead') n++;
     return n;
   }
 
@@ -757,12 +767,15 @@ export class BirdManager {
       for (const spId of ['quail', 'woodcock']) {
         const target = this.groundTarget(spId) * Math.max(1, players.length * 0.7);
         if (!target) continue;
+        // only the birds round the hunters count: walk on and fresh ones are
+        // found ahead, the ones left far behind are let go
         let n = 0;
         for (const b of [...this.birds.values()]) {
-          if (b.spId !== spId || b.state !== 'hidden') continue;
-          const far = players.every((p) => Math.hypot(p.pos.x - b.pos.x, p.pos.z - b.pos.z) > 220);
-          if (far && !b.zone) this.remove(b); // the hunters have moved on
-          else n++;
+          if (b.spId !== spId || b.state !== 'hidden' || b.zone) continue;
+          let d = Infinity;
+          for (const p of players) d = Math.min(d, Math.hypot(p.pos.x - b.pos.x, p.pos.z - b.pos.z));
+          if (d > 200) this.remove(b); // the hunters have moved on
+          else if (d < 140) n++;
         }
         if (n < target) this.spawnGround(spId, players, 60, 125);
         if (n < target - 3) this.spawnGround(spId, players, 60, 125);
@@ -1114,10 +1127,10 @@ export class BirdManager {
             speed *= 1 + clamp((-ahead / spread) * 0.3, -0.2, 0.25);
           }
           if (g.panic > 0) turnRate = 2.6;
-          if (!g.path.length && Math.hypot(b.pos.x, b.pos.z) > PLAY_RADIUS + 320) return this.remove(b);
+          if (!g.path.length && Math.hypot(b.pos.x, b.pos.z) > PLAY_RADIUS + 220) return this.remove(b);
         } else {
           desired.copy(b.heading);
-          if (Math.hypot(b.pos.x, b.pos.z) > PLAY_RADIUS + 320) return this.remove(b);
+          if (Math.hypot(b.pos.x, b.pos.z) > PLAY_RADIUS + 220) return this.remove(b);
         }
         targetAlt = Math.max(targetAlt, this.canopyAhead(b, dt) + 2.5);
         break;
@@ -1169,7 +1182,7 @@ export class BirdManager {
         // 'leave': a lone bird flying off
         desired.copy(b.heading);
         targetAlt = Math.max(targetAlt, this.canopyAhead(b, dt) + 2.5);
-        if (Math.hypot(b.pos.x, b.pos.z) > PLAY_RADIUS + 320) return this.remove(b);
+        if (Math.hypot(b.pos.x, b.pos.z) > PLAY_RADIUS + 220) return this.remove(b);
       }
     }
     if (b.flaring) speed *= 0.7;
@@ -1753,6 +1766,16 @@ export class BirdManager {
     }
     root.visible = true;
     root.position.copy(P);
+    // a small bird's shadow is lost past a few dozen metres: don't draw it
+    if (this.viewer) {
+      const far = P.distanceToSquared(this.viewer) > 70 * 70;
+      if (far !== b.farShadow) {
+        b.farShadow = far;
+        root.traverse((o) => {
+          if (o.isMesh) o.castShadow = !far;
+        });
+      }
+    }
     let mode;
     if (this.authority) {
       mode = this.wingMode(b);

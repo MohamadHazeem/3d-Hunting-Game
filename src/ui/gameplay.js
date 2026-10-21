@@ -203,6 +203,7 @@ export class Gameplay {
     for (const k in this.cd) this.cd[k] = Math.max(0, this.cd[k] - dt);
     if (sim > 0 && g.authority) this.zones.update(sim, g.birds, [...g.players.values()], g.atmo.hour);
     g.map.hour = g.atmo.hour;
+    g.birds.viewer = g.camera.position;
     g.camera.updateMatrixWorld();
     this.spot(dt);
     this.checkZones(dt);
