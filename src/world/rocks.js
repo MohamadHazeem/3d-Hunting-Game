@@ -4,12 +4,82 @@ import { Random, hash2, smoothstep } from '../core/rng.js';
 import { CORE_SIZE } from './terrain.js';
 import { loadTex } from '../core/assets.js';
 import { wetness } from './shading.js';
+import { loadModel } from './models.js';
 
 // Limestone: boulders and outcrops on the slopes, field stones and the
 // cleared-stone heaps that sit at the edges of Lebanese fields. Drawn with
-// instancing in chunks; each chunk swaps to a cheaper rock far away.
+// instancing in chunks; each chunk swaps to a cheaper rock far away. The
+// shapes are photo-scanned rocks (public/models/rocks, decimated, with their
+// own ambient occlusion baked into the vertex colours); the procedural rock
+// below stands in if they can't be loaded.
 
 const CHUNK = 125;
+
+// How to normalise a scanned rock: centred, longest side along x, scaled to
+// a unit horizontal radius, with 30% of its height below the origin (the part
+// that sits in the ground). Measured on the detailed level and applied to
+// both, so the two levels line up.
+function rockFrame(g) {
+  const r = g.clone();
+  r.computeBoundingBox();
+  const turn = r.boundingBox.max.z - r.boundingBox.min.z > r.boundingBox.max.x - r.boundingBox.min.x;
+  if (turn) r.rotateY(Math.PI / 2);
+  r.computeBoundingBox();
+  const b = r.boundingBox;
+  const k = 1 / Math.max(1e-3, (b.max.x - b.min.x) / 2, (b.max.z - b.min.z) / 2);
+  const H = (b.max.y - b.min.y) * k;
+  return { turn, cx: (b.min.x + b.max.x) / 2, y0: b.min.y, cz: (b.min.z + b.max.z) / 2, k, H, top: 0.7 * H };
+}
+
+function applyFrame(g, f) {
+  const out = g.clone();
+  if (f.turn) out.rotateY(Math.PI / 2);
+  out.translate(-f.cx, -f.y0, -f.cz);
+  out.scale(f.k, f.k, f.k);
+  out.translate(0, -0.3 * f.H, 0);
+  out.computeBoundingSphere();
+  return out;
+}
+
+// A stump or fallen trunk at its real size: centred, standing on y = 0.
+function woodPiece(meshes, lod1) {
+  const m = meshes.find((x) => x.name.endsWith('_lod1') === lod1) || meshes[0];
+  const ref = meshes.find((x) => !x.name.endsWith('_lod1')) || m;
+  ref.geometry.computeBoundingBox();
+  const b = ref.geometry.boundingBox;
+  const g = m.geometry.clone();
+  g.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);
+  g.computeBoundingSphere();
+  return g;
+}
+
+let library = null;
+// Scanned rock shapes: { big: [{hi, lo, top}], small: [geometry] }, or null
+export function rockLibrary() {
+  if (library) return library;
+  const files = ['boulder_01', 'boulder_02', 'boulder_05', 'rock_set', 'stone_07', 'stone_09'];
+  library = Promise.all(files.map((n) => loadModel('rocks/' + n))).then((sets) => {
+    if (sets.some((x) => !x)) return null;
+    const meshes = sets.flat();
+    const by = new Map(meshes.map((m) => [m.name, m.geometry]));
+    const big = [];
+    const small = [];
+    for (const m of meshes) {
+      if (m.name.endsWith('_lod1')) continue;
+      const f = rockFrame(m.geometry);
+      const lo = by.get(m.name + '_lod1');
+      if (lo) {
+        big.push({ hi: applyFrame(m.geometry, f), lo: applyFrame(lo, f), top: f.top });
+        // two of the set's rocks also make good field stones (cheap level)
+        if (/rock0[35]$/.test(m.name)) small.push(applyFrame(lo, f));
+      } else {
+        small.push(applyFrame(m.geometry, f));
+      }
+    }
+    return { big, small };
+  });
+  return library;
+}
 
 // a lumpy, flattened rock (radius ~1) with smooth normals
 export function rockGeometry(seed, detail = 1, flat = 0.62) {
@@ -41,8 +111,9 @@ export function rockGeometry(seed, detail = 1, flat = 0.62) {
 // Triplanar stone in the rock's own space (no UV seams), tinted per instance.
 // The texture only gives grain: it is turned to grey (the photo is of mossy
 // rock) and scaled by `gain` so the stone's colour comes from the tint.
-export function stoneMaterial(diff, scale, tint = 0xffffff, roughness = 0.92, gain = 5.5) {
-  const m = new THREE.MeshStandardMaterial({ color: tint, roughness, metalness: 0 });
+export function stoneMaterial(diff, scale, tint = 0xffffff, roughness = 0.92, gain = 5.5, bakedAO = false) {
+  // bakedAO: the scanned rocks carry their occlusion in the vertex colours
+  const m = new THREE.MeshStandardMaterial({ color: tint, roughness, metalness: 0, vertexColors: bakedAO });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.tStone = { value: diff };
     shader.uniforms.uWet = wetness;
@@ -67,7 +138,7 @@ export function stoneMaterial(diff, scale, tint = 0xffffff, roughness = 0.92, ga
       )
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.42, uWet * 0.75);');
   };
-  m.customProgramCacheKey = () => 'stone' + scale + ':' + gain;
+  m.customProgramCacheKey = () => 'stone' + scale + ':' + gain + (bakedAO ? ':ao' : '');
   return m;
 }
 
@@ -90,17 +161,40 @@ export class Rocks {
 
   async build(scene, clearing) {
     const terrain = this.terrain;
-    const diff = await loadTex('rocky_terrain_02_diff.jpg', true);
-    const mat = stoneMaterial(diff, 0.45, 0xd8d4cc);
-    const hiGeo = [0, 1, 2].map((i) => rockGeometry(this.hunt.seed * 3 + i, this.T.detail >= 1 ? 2 : 1));
-    const loGeo = [0, 1, 2].map((i) => rockGeometry(this.hunt.seed * 3 + i, 0));
+    const [diff, lib, barkD, stump, trunk] = await Promise.all([
+      loadTex('rocky_terrain_02_diff.jpg', true),
+      rockLibrary(),
+      loadTex('bark_brown_02_diff.jpg', true),
+      loadModel('deadwood/stump'),
+      loadModel('deadwood/trunk'),
+    ]);
+    // stumps and fallen trunks under the trees (scanned, their real size)
+    const wood = stump && trunk ? [stump, trunk].map((ms) => ({ hi: woodPiece(ms, false), lo: woodPiece(ms, true) })) : null;
+    const woodMat = wood ? stoneMaterial(barkD, 1.4, 0xa49480, 0.95, 3.4, true) : null;
+    const mat = stoneMaterial(diff, 0.45, lib ? 0xe2d8c8 : 0xd8d4cc, 0.92, 5.5, !!lib);
+    let hiGeo;
+    let loGeo;
+    let tops;
+    if (lib) {
+      hiGeo = lib.big.map((b) => b.hi);
+      loGeo = lib.big.map((b) => b.lo);
+      tops = lib.big.map((b) => b.top);
+    } else {
+      hiGeo = [0, 1, 2].map((i) => rockGeometry(this.hunt.seed * 3 + i, this.T.detail >= 1 ? 2 : 1));
+      loGeo = [0, 1, 2].map((i) => rockGeometry(this.hunt.seed * 3 + i, 0));
+      tops = [0.45, 0.45, 0.45];
+    }
+    const NV = hiGeo.length;
+    // scanned rocks keep their natural height, so sit them less deep
+    const sink = lib ? 0.06 : 0.3;
     // heaps: a dozen stones piled into a rough cone
     const pileGeo = [0, 1].map((k) => {
       const r = new Random(this.hunt.seed + 50 + k);
       const parts = [];
       const n = r.int(11, 16);
       for (let i = 0; i < n; i++) {
-        const g = rockGeometry(this.hunt.seed + 100 * k + i, 0, 0.7);
+        const g = lib ? lib.small[r.int(0, lib.small.length - 1)].clone() : rockGeometry(this.hunt.seed + 100 * k + i, 0, 0.7);
+        if (lib) g.scale(1, 0.8, 1);
         const a = r.float(0, Math.PI * 2);
         const d = Math.sqrt(r.next()) * 1.1;
         const s = r.float(0.22, 0.42);
@@ -109,6 +203,7 @@ export class Rocks {
         g.translate(Math.cos(a) * d, 0.55 * (1 - d / 1.25) + s * 0.3, Math.sin(a) * d);
         parts.push(g);
       }
+      if (lib) for (const g of parts) for (const a of Object.keys(g.attributes)) if (!['position', 'normal', 'color'].includes(a)) g.deleteAttribute(a);
       return mergeGeometries(parts);
     });
 
@@ -122,21 +217,23 @@ export class Rocks {
     const col = new THREE.Color();
     const add = (kind, vi, x, z, s, tilt) => {
       const key = Math.floor((x + CORE_SIZE / 2) / CHUNK) + ':' + Math.floor((z + CORE_SIZE / 2) / CHUNK);
-      if (!chunks.has(key)) chunks.set(key, { rocks: [[], [], []], piles: [[], []], cx: 0, cy: 0, cz: 0, n: 0 });
+      if (!chunks.has(key)) chunks.set(key, { rocks: hiGeo.map(() => []), piles: [[], []], wood: [[], []], cx: 0, cy: 0, cz: 0, n: 0 });
       const c = chunks.get(key);
       const y = terrain.height(x, z);
       terrain.normal(x, z, nrm);
-      dummy.position.set(x, y - s * (kind === 'pile' ? 0.05 : 0.3), z);
+      dummy.position.set(x, y - s * (kind === 'pile' ? 0.05 : kind === 'wood' ? 0.04 : sink), z);
       dummy.rotation.set(nrm.z * tilt, rnd.float(0, Math.PI * 2), -nrm.x * tilt);
-      dummy.scale.set(s * rnd.float(0.8, 1.25), s * rnd.float(0.75, 1.2), s * rnd.float(0.8, 1.25));
+      if (kind === 'wood') dummy.scale.setScalar(s);
+      else dummy.scale.set(s * rnd.float(0.8, 1.25), s * rnd.float(0.75, 1.2), s * rnd.float(0.8, 1.25));
       dummy.updateMatrix();
       col.setHSL(0.09 + rnd.float(-0.02, 0.02), rnd.float(0.04, 0.12), rnd.float(0.62, 0.86));
-      (kind === 'pile' ? c.piles : c.rocks)[vi].push({ m: dummy.matrix.clone(), c: col.clone() });
+      (kind === 'pile' ? c.piles : kind === 'wood' ? c.wood : c.rocks)[vi].push({ m: dummy.matrix.clone(), c: col.clone() });
       c.cx += x;
       c.cy += y;
       c.cz += z;
       c.n++;
-      if (s > 0.6 && kind === 'rock') this.stones.push({ x, z, y, r: s * 0.85, h: s * 0.45 });
+      if (s > 0.6 && kind === 'rock') this.stones.push({ x, z, y, r: s * 0.85, h: s * (tops[vi] - sink) });
+      if (kind === 'wood' && vi === 0) this.stones.push({ x, z, y, r: 0.55 * s, h: 0.5 * s });
     };
 
     // boulders: a grid of candidate cells, kept by slope/rockiness
@@ -158,13 +255,13 @@ export class Rocks {
         if (h > pCell * want) continue;
         const big = rnd.chance(dens.big);
         const s = big ? rnd.float(1.1, 2.2) : rnd.float(0.18, 0.75) * (rnd.chance(0.25) ? 1.6 : 1);
-        add('rock', rnd.int(0, 2), x, z, s, 0.6);
+        add('rock', rnd.int(0, NV - 1), x, z, s, 0.6);
         // outcrops: a few smaller stones around a big one
         if (big || rnd.chance(0.2)) {
           for (let k = 0; k < rnd.int(2, 5); k++) {
             const a = rnd.float(0, Math.PI * 2);
             const d = s * rnd.float(0.9, 2.2);
-            add('rock', rnd.int(0, 2), x + Math.cos(a) * d, z + Math.sin(a) * d, s * rnd.float(0.2, 0.5), 0.6);
+            add('rock', rnd.int(0, NV - 1), x + Math.cos(a) * d, z + Math.sin(a) * d, s * rnd.float(0.2, 0.5), 0.6);
           }
         }
       }
@@ -183,6 +280,26 @@ export class Rocks {
         const m = terrain.maskAt(x, z);
         if (nrm.y < 0.93 || m.forest > 0.5 || m.snow > 0.5) continue;
         add('pile', rnd.int(0, 1), x, z, rnd.float(0.8, 1.3), 0.2);
+      }
+    }
+
+    // stumps and fallen trunks where the trees are
+    if (wood) {
+      const wcell = 16;
+      const per = { forest: 3, highland: 1.5, terraces: 0.8, plain: 0 }[terrain.kind] || 0;
+      const pw = Math.min(1, (per * qMul * wcell * wcell) / 10000);
+      for (let gz = -half; gz < half; gz += wcell) {
+        for (let gx = -half; gx < half; gx += wcell) {
+          const h = hash2(gx | 0, gz | 0, 5151 + this.hunt.seed);
+          if (h > pw) continue;
+          const x = gx + hash2(gx | 0, gz | 0, 23) * wcell;
+          const z = gz + hash2(gx | 0, gz | 0, 29) * wcell;
+          if (terrain.road(x, z) < 5) continue;
+          if (clearing && Math.hypot(x - clearing.x, z - clearing.z) < clearing.r + 3) continue;
+          const m = terrain.maskAt(x, z);
+          if (h > pw * m.forest * (1 - m.snow * 0.6)) continue;
+          add('wood', rnd.chance(0.45) ? 0 : 1, x, z, rnd.float(0.75, 1.15), 0.9);
+        }
       }
     }
 
@@ -210,7 +327,7 @@ export class Rocks {
         im.computeBoundingSphere();
         return im;
       };
-      for (let v = 0; v < 3; v++) {
+      for (let v = 0; v < NV; v++) {
         const a = build(hiGeo[v], c.rocks[v], mat, shadows);
         if (a) near.add(a);
         const b = build(loGeo[v], c.rocks[v], mat, shadows);
@@ -221,6 +338,12 @@ export class Rocks {
         if (a) near.add(a);
         const b = build(pileGeo[v], c.piles[v], mat, false);
         if (b) far.add(b);
+        if (wood) {
+          const w = build(wood[v].hi, c.wood[v], woodMat, shadows);
+          if (w) near.add(w);
+          const wl = build(wood[v].lo, c.wood[v], woodMat, false);
+          if (wl) far.add(wl);
+        }
       }
       lod.addLevel(near, 0);
       lod.addLevel(far, 150);

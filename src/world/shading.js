@@ -19,6 +19,9 @@ export const sunScatter = { x: 0, y: 0, z: 0 }; // sun-coloured haze glow (rgb)
 export const sunDirection = { x: 0, y: 1, z: 0 };
 // a number would be copied per material, so time is kept in an object too
 export const mistTime = { x: 0, y: 0 };
+// aerial perspective: x = how clear the air is (1: gradual blue haze that
+// thins with height; 0: the plain fog wall), y = valley floor height
+export const aerial = { x: 1, y: 0 };
 
 // How wet the ground is (0..1, from the weather). Materials that get wet
 // (terrain, stone, grass) add this very uniform object to their shaders in
@@ -33,6 +36,7 @@ const extra = {
   uSunScatter: { value: sunScatter },
   uSunDirF: { value: sunDirection },
   uMistTime: { value: mistTime },
+  uAerial: { value: aerial },
 };
 
 for (const key of Object.keys(THREE.ShaderLib)) {
@@ -73,6 +77,7 @@ C.fog_pars_fragment = /* glsl */ `
   uniform vec3 uSunScatter;
   uniform vec3 uSunDirF;
   uniform vec2 uMistTime;
+  uniform vec2 uAerial;
   float lbhFogHash( vec2 p ) { return fract( sin( dot( p, vec2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
   float lbhFogNoise( vec2 p ) {
     vec2 i = floor( p ); vec2 f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
@@ -87,13 +92,26 @@ C.fog_fragment = /* glsl */ `
     vec3 fogRay = vFogWorld - cameraPosition;
     float fogDist = length( fogRay );
     vec3 fogDir = fogRay / max( fogDist, 1e-3 );
-    #ifdef FOG_EXP2
-      float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );
-    #else
-      float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );
-    #endif
     float sunAmt = pow( max( dot( fogDir, uSunDirF ), 0.0 ), 5.0 );
     vec3 hazeCol = fogColor + uSunScatter * sunAmt;
+    #ifdef FOG_EXP2
+      // Aerial perspective. The fog's own exp2 curve (clear close by, a wall
+      // far off) is what fog and rain need; clear air instead thickens
+      // steadily with distance, thins with height (scale height ~1.1 km above
+      // the valley floor) and takes the blue out first, so far ridges step
+      // back in layers of blue haze rather than vanishing into white.
+      float fz = fogDensity * vFogDepth;
+      float hAvg = max( 0.0, 0.5 * ( cameraPosition.y + vFogWorld.y ) - uAerial.y );
+      float thin = mix( 1.0, exp( - hAvg / 1600.0 ), uAerial.x );
+      float odG = ( fz * fz * ( 1.0 - 0.45 * uAerial.x ) + fz * 0.55 * uAerial.x ) * thin;
+      // the haze itself is the sky's colour (fogColor); what lies behind it
+      // loses its blue first
+      vec3 fogT = exp( - odG * mix( vec3( 1.0 ), vec3( 0.86, 0.98, 1.16 ), uAerial.x ) );
+      gl_FragColor.rgb *= fogT / max( exp( - odG ), 1e-4 );
+      vec3 fogFactor3 = vec3( 1.0 - exp( - odG ) );
+    #else
+      vec3 fogFactor3 = vec3( smoothstep( fogNear, fogFar, vFogDepth ) );
+    #endif
     if ( uMist.x > 0.0 ) {
       // optical depth of exp(-(y - base) / falloff) integrated along the ray
       float k = 1.0 / uMist.z;
@@ -109,7 +127,7 @@ C.fog_fragment = /* glsl */ `
       vec3 mistCol = uMistColor + uSunScatter * sunAmt * 0.7;
       gl_FragColor.rgb = mix( gl_FragColor.rgb, mistCol, mistF );
     }
-    gl_FragColor.rgb = mix( gl_FragColor.rgb, hazeCol, fogFactor );
+    gl_FragColor.rgb = mix( gl_FragColor.rgb, hazeCol, fogFactor3 );
   }
 #endif
 `;

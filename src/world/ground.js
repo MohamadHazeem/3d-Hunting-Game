@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import { Random, hash2, smoothstep } from '../core/rng.js';
 import { loadTex } from '../core/assets.js';
 import { bleedTexture } from './foliageTextures.js';
-import { rockGeometry, stoneMaterial } from './rocks.js';
+import { rockGeometry, stoneMaterial, rockLibrary } from './rocks.js';
+import { loadModel } from './models.js';
 
 // Ground detail that only matters close to the hunter, rebuilt as you walk:
-// pebbles and gravel, and dry thistles in the fields.
+// pebbles and gravel (photo-scanned stones), fallen dry branches under the
+// trees, and dry thistles in the fields.
 
 const CELL = 4;
 const _m = new THREE.Matrix4();
@@ -106,6 +108,44 @@ function crossCards(w, h) {
   return g;
 }
 
+// Several instanced shapes filled together, each instance going to one of
+// them (stones of different shapes, branches of different lengths).
+class Scatter {
+  constructor(scene, geos, mat, cap, shadows) {
+    const per = Math.ceil(cap / geos.length) + 16;
+    this.meshes = geos.map((g) => {
+      const m = new THREE.InstancedMesh(g, mat, per);
+      m.count = 0;
+      m.frustumCulled = false;
+      m.receiveShadow = true;
+      m.castShadow = shadows;
+      scene.add(m);
+      return m;
+    });
+    this.n = this.meshes.map(() => 0);
+    this.per = per;
+  }
+  begin() {
+    this.n.fill(0);
+  }
+  add(k, matrix, color) {
+    const i = k % this.meshes.length;
+    if (this.n[i] >= this.per) return false;
+    const m = this.meshes[i];
+    m.setMatrixAt(this.n[i], matrix);
+    if (color) m.setColorAt(this.n[i], color);
+    this.n[i]++;
+    return true;
+  }
+  end() {
+    this.meshes.forEach((m, i) => {
+      m.count = this.n[i];
+      m.instanceMatrix.needsUpdate = true;
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    });
+  }
+}
+
 export class NearGround {
   constructor(hunt, terrain, T) {
     this.hunt = hunt;
@@ -117,19 +157,36 @@ export class NearGround {
     this.radius = 22 + 14 * d;
     this.pebblesPerCell = { highland: 9, terraces: 6, forest: 3, plain: 4 }[this.kind] * d;
     this.thistlesPerCell = { plain: 0.9, terraces: 0.5, forest: 0.1, highland: 0.15 }[this.kind] * d;
+    // fallen branches per cell under full tree cover
+    this.branchesPerCell = { forest: 0.9, highland: 0.5, terraces: 0.35, plain: 0.1 }[this.kind] * d;
   }
 
   async build(scene) {
     const T = this.T;
-    const rockD = await loadTex('rocky_terrain_02_diff.jpg', true);
-    const pebMat = stoneMaterial(rockD, 1.6, 0xcfc8bc);
+    const [rockD, barkD, lib, wood] = await Promise.all([
+      loadTex('rocky_terrain_02_diff.jpg', true),
+      loadTex('bark_brown_02_diff.jpg', true),
+      rockLibrary(),
+      loadModel('deadwood/branches'),
+    ]);
+    const pebMat = stoneMaterial(rockD, 1.6, 0xcfc8bc, 0.92, 5.5, !!lib);
     const R = this.radius;
     this.pebCap = Math.ceil(((Math.PI * R * R) / (CELL * CELL)) * this.pebblesPerCell * 1.6) + 50;
-    this.pebbles = new THREE.InstancedMesh(rockGeometry(this.hunt.seed + 5, 0, 0.6), pebMat, this.pebCap);
-    this.pebbles.count = 0;
-    this.pebbles.frustumCulled = false;
-    this.pebbles.receiveShadow = true;
-    scene.add(this.pebbles);
+    const stones = lib ? lib.small : [rockGeometry(this.hunt.seed + 5, 0, 0.6)];
+    this.pebbles = new Scatter(scene, stones, pebMat, this.pebCap, false);
+    if (wood) {
+      // weathered grey deadwood: the bark photo as grain, its occlusion baked in
+      const geos = wood.map((w) => {
+        const g = w.geometry;
+        g.computeBoundingBox();
+        const b = g.boundingBox;
+        g.translate(-(b.min.x + b.max.x) / 2, -b.min.y - 0.02, -(b.min.z + b.max.z) / 2);
+        return g;
+      });
+      const woodMat = stoneMaterial(barkD, 2.2, 0xa89a88, 0.95, 3.2, true);
+      this.brCap = Math.ceil(((Math.PI * R * R) / (CELL * CELL)) * this.branchesPerCell * 1.3) + 10;
+      this.branches = new Scatter(scene, geos, woodMat, this.brCap, T.shadows);
+    }
 
     const tex = thistleTexture(this.hunt.seed + 31);
     const thMat = new THREE.MeshStandardMaterial({
@@ -168,6 +225,9 @@ export class NearGround {
     const nrm = new THREE.Vector3();
     let np = 0;
     let nt = 0;
+    let nb = 0;
+    this.pebbles.begin();
+    if (this.branches) this.branches.begin();
     const c0x = Math.floor((pos.x - R) / CELL), c1x = Math.floor((pos.x + R) / CELL);
     const c0z = Math.floor((pos.z - R) / CELL), c1z = Math.floor((pos.z + R) / CELL);
     for (let cz = c0z; cz <= c1z; cz++) {
@@ -192,10 +252,28 @@ export class NearGround {
           _p.set(x, t.height(x, z) - s * 0.25, z);
           _s.set(s * (0.8 + h * 0.5), s * 0.8, s);
           _m.compose(_p, _q, _s);
-          this.pebbles.setMatrixAt(np, _m);
           _c.setHSL(0.08 + h * 0.04, 0.1, 0.55 + hash2(cx, cz, i * 5 + 3 + seed) * 0.35);
-          this.pebbles.setColorAt(np, _c);
+          this.pebbles.add(Math.floor(h * 97), _m, _c);
           np++;
+        }
+        // dry branches fallen under the trees
+        if (this.branches) {
+          const nbr = this.branchesPerCell * m.forest * (1 - m.snow * 0.7) * (road < 3 ? 0 : 1);
+          for (let i = 0; i < 2 && nb < this.brCap; i++) {
+            if (hash2(cx, cz, i * 11 + seed + 90) > nbr - i) continue;
+            const x = cx * CELL + hash2(cx, cz, i * 11 + 91 + seed) * CELL;
+            const z = cz * CELL + hash2(cx, cz, i * 11 + 92 + seed) * CELL;
+            const h = hash2(cx, cz, i * 11 + 93 + seed);
+            t.normal(x, z, nrm);
+            _q.setFromUnitVectors(UP, nrm).multiply(new THREE.Quaternion().setFromAxisAngle(UP, h * 40));
+            _p.set(x, t.height(x, z) - 0.015, z);
+            const sc = 0.7 + h * 0.6;
+            _s.set(sc, sc, sc);
+            _m.compose(_p, _q, _s);
+            _c.setHSL(0.08, 0.08, 0.75 + h * 0.3);
+            this.branches.add(Math.floor(h * 31), _m, _c);
+            nb++;
+          }
         }
         // thistles grow in patches on open, dry ground
         const patch = smoothstep(0.55, 0.8, hash2(Math.floor(cx / 4), Math.floor(cz / 4), seed + 9));
@@ -219,11 +297,10 @@ export class NearGround {
         }
       }
     }
-    for (const im of [this.pebbles, this.thistles]) {
-      im.instanceMatrix.needsUpdate = true;
-      if (im.instanceColor) im.instanceColor.needsUpdate = true;
-    }
-    this.pebbles.count = np;
+    this.pebbles.end();
+    if (this.branches) this.branches.end();
+    this.thistles.instanceMatrix.needsUpdate = true;
+    if (this.thistles.instanceColor) this.thistles.instanceColor.needsUpdate = true;
     this.thistles.count = nt;
   }
 }
