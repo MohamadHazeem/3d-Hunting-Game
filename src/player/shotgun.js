@@ -91,7 +91,7 @@ function engravingTexture() {
   return t;
 }
 
-export function buildShotgunModel() {
+export function buildShotgunModel({ arms: withArms = true } = {}) {
   const gun = new THREE.Group();
   const steel = new THREE.MeshStandardMaterial({ color: 0x18191c, metalness: 0.9, roughness: 0.32 });
   const silver = new THREE.MeshStandardMaterial({ map: engravingTexture(), metalness: 0.85, roughness: 0.42 });
@@ -179,6 +179,55 @@ export function buildShotgunModel() {
   pad.rotation.x = -0.04;
   stockGroup.add(pad);
 
+  // The hunter's hands and sleeves: the left hand cups the fore-end (and
+  // goes down with the barrels when the gun is broken open), the right hand
+  // holds the grip with a finger on the trigger.
+  let arms = null;
+  if (withArms) {
+    const skin = new THREE.MeshStandardMaterial({ color: 0xb98a68, roughness: 0.75 });
+    const sleeve = new THREE.MeshStandardMaterial({ color: 0x4f5236, roughness: 0.95 });
+    const cuff = new THREE.MeshStandardMaterial({ color: 0x3c3f2a, roughness: 0.95 });
+    const leftHand = new THREE.Group();
+    leftHand.position.set(0, -0.09, -0.27);
+    bar.add(leftHand);
+    const palmL = new THREE.Mesh(new RoundedBoxGeometry(0.075, 0.035, 0.1, 2, 0.014), skin);
+    palmL.position.set(-0.004, -0.004, 0);
+    leftHand.add(palmL);
+    const fingersL = new THREE.Mesh(new RoundedBoxGeometry(0.018, 0.05, 0.085, 2, 0.008), skin);
+    fingersL.position.set(0.032, 0.018, 0.004);
+    leftHand.add(fingersL);
+    const thumbL = new THREE.Mesh(new RoundedBoxGeometry(0.016, 0.03, 0.06, 2, 0.007), skin);
+    thumbL.position.set(-0.034, 0.016, 0.01);
+    leftHand.add(thumbL);
+    const rightHand = new THREE.Group();
+    rightHand.position.set(0.0, -0.105, 0.085);
+    gun.add(rightHand);
+    const palmR = new THREE.Mesh(new RoundedBoxGeometry(0.06, 0.07, 0.08, 2, 0.016), skin);
+    palmR.rotation.x = 0.35;
+    rightHand.add(palmR);
+    const finger = new THREE.Mesh(new RoundedBoxGeometry(0.014, 0.014, 0.05, 2, 0.006), skin);
+    finger.position.set(-0.012, 0.03, -0.075);
+    finger.rotation.x = 0.4;
+    rightHand.add(finger);
+    const limbGeo = new THREE.CylinderGeometry(0.85, 1, 1, 12);
+    const armL = new THREE.Mesh(limbGeo, sleeve);
+    const armR = new THREE.Mesh(limbGeo, sleeve);
+    const cuffL = new THREE.Mesh(new THREE.CylinderGeometry(0.043, 0.043, 0.035, 12), cuff);
+    const cuffR = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.035, 12), cuff);
+    gun.add(armL, armR, cuffL, cuffR);
+    arms = {
+      leftHand,
+      rightHand,
+      armL,
+      armR,
+      cuffL,
+      cuffR,
+      // elbows, in gun space: tucked in under the body, out of the way of the view
+      elbowL: new THREE.Vector3(-0.17, -0.27, 0.12),
+      elbowR: new THREE.Vector3(0.2, -0.24, 0.42),
+    };
+  }
+
   gun.traverse((o) => {
     if (o.isMesh) {
       o.castShadow = false;
@@ -186,7 +235,7 @@ export function buildShotgunModel() {
       o.frustumCulled = false;
     }
   });
-  return { gun, hinge, bar, chambers, stock: stockGroup, muzzleLocal: [new THREE.Vector3(0, -0.0475, -0.095 - BL), new THREE.Vector3(0, -0.0235, -0.095 - BL)] };
+  return { gun, hinge, bar, chambers, arms, stock: stockGroup, muzzleLocal: [new THREE.Vector3(0, -0.0475, -0.095 - BL), new THREE.Vector3(0, -0.0235, -0.095 - BL)] };
 }
 
 export class Shotgun {
@@ -536,6 +585,27 @@ export class Shotgun {
     audio.play('breakOpen', null, { gain: 0.8 });
   }
 
+  // Stretch each forearm from its elbow to its wrist.
+  updateArms() {
+    const A = this.model.arms;
+    if (!A) return;
+    const gun = this.model.gun;
+    gun.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(gun.matrixWorld).invert();
+    const fit = (arm, cuffMesh, elbow, hand, wristOff, r) => {
+      const wrist = hand.localToWorld(wristOff.clone()).applyMatrix4(inv);
+      const d = new THREE.Vector3().subVectors(wrist, elbow);
+      const len = d.length();
+      arm.position.copy(elbow).addScaledVector(d, 0.5);
+      arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize());
+      arm.scale.set(r, len, r);
+      cuffMesh.position.copy(wrist).addScaledVector(d, -0.04 / len);
+      cuffMesh.quaternion.copy(arm.quaternion);
+    };
+    fit(A.armL, A.cuffL, A.elbowL, A.leftHand, new THREE.Vector3(-0.012, -0.012, 0.055), 0.038);
+    fit(A.armR, A.cuffR, A.elbowR, A.rightHand, new THREE.Vector3(0.01, -0.03, 0.05), 0.041);
+  }
+
   update(dt, player, input) {
     const m = this.model;
     // aim-down-sights blend
@@ -597,6 +667,7 @@ export class Shotgun {
       if (R.t > 1.6) this.reloading = null;
     }
     m.hinge.rotation.x = -open * 0.55;
+    this.updateArms();
     for (let i = 0; i < 2; i++) m.chambers[i].visible = this.loaded[i] || this.fired[i];
 
     const sprinting = player.speed > 4.5;

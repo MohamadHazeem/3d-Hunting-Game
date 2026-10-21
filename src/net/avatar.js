@@ -74,7 +74,7 @@ export class Avatar {
       arm.position.set(sx * 0.17, -0.12, -0.2);
       aim.add(arm);
     }
-    const gun = buildShotgunModel().gun;
+    const gun = buildShotgunModel({ arms: false }).gun;
     gun.position.set(0.05, -0.05, -0.15);
     gun.traverse((o) => o.isMesh && (o.castShadow = true));
     aim.add(gun);
