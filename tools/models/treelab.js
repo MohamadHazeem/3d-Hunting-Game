@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { buildTree, treeLods } from '/src/world/trees.js';
+import '/src/world/shading.js';
 import { treeMaterial, windUniforms } from '/src/world/foliage.js';
 import { loadFoliageAtlas } from '/src/world/foliageTextures.js';
 import { loadTex } from '/src/core/assets.js';

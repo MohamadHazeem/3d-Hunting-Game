@@ -193,7 +193,7 @@ export class Grass {
           m4.compose(p, q, s);
           this.mesh.setMatrixAt(n, m4);
           // darker and lighter tufts, a little warmer or cooler
-          const l = 0.62 + r2 * 0.32;
+          const l = 0.74 + r2 * 0.3;
           color.setRGB(l, l * (0.95 + r * 0.05), l * (0.84 + r * 0.1));
           this.mesh.setColorAt(n, color);
           n++;

@@ -58,6 +58,12 @@ const WIND_VERTEX = /* glsl */ `
 }
 `;
 
+const LEAF_SHADOW = /* glsl */ `
+#ifdef USE_SHADOWMAP
+  float lbhLeafShadow( float s, vec4 c ) { return mix( 1.0, lbhShadow( s, c ), 0.6 ); }
+#endif
+`;
+
 // kind: 'leaf' or 'bark'. For leaves: tex is the foliage atlas; opts.trans
 // how much light comes through, opts.a2c alpha to coverage (needs MSAA).
 export function treeMaterial(kind, opts) {
@@ -88,7 +94,12 @@ export function treeMaterial(kind, opts) {
       fs = fs
         // cards carry crown-shaped normals; keep them on both faces
         .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n normal = normalize(vNormal); nonPerturbedNormal = normal;')
-        .replace('#include <lights_physical_pars_fragment>', translucentLights(trans));
+        .replace('#include <lights_physical_pars_fragment>', translucentLights(trans))
+        // A crown is hundreds of cards, each shading the ones behind it in the
+        // shadow map, which turns whole trees black. Real leaves pass and
+        // scatter light: let part of the sun through their shadows.
+        .replace('#include <shadowmap_pars_fragment>', '#include <shadowmap_pars_fragment>\n' + LEAF_SHADOW)
+        .replace('#include <lights_fragment_begin>', THREE.ShaderChunk.lights_fragment_begin.replaceAll('lbhShadow(', 'lbhLeafShadow('));
     }
     shader.fragmentShader = fs;
   };

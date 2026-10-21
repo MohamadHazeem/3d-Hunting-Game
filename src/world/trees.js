@@ -129,8 +129,9 @@ class Tree {
 // ---------------------------------------------------------------- species
 
 function olive(seed) {
-  // Old grove olives: a squat, swollen, often split trunk, a few twisting
-  // scaffold limbs, an open, uneven crown of grey-green.
+  // Old grove olives, pruned the Lebanese way: a squat, swollen, often split
+  // trunk carrying a few twisting scaffold limbs that open into a broad,
+  // uneven crown of grey-green, held clear of the ground.
   const T = new Tree(seed);
   const r = T.r;
   T.size = 5;
@@ -139,30 +140,33 @@ function olive(seed) {
   const tips = [];
   for (let s = 0; s < stems; s++) {
     const a = (s / stems) * Math.PI * 2 + r.float(-0.5, 0.5);
-    const d = spread(UP, r.float(0.15, 0.4), a);
+    const d = spread(UP, r.float(0.12, 0.32), a);
     const p0 = base.clone().add(new THREE.Vector3(Math.cos(a) * 0.12, 0, Math.sin(a) * 0.12));
-    const st = T.limb(p0, d, r.float(1.1, 1.7), r.float(0.2, 0.28), r.float(0.13, 0.18), 0, { gnarl: 0.5, wobble: 0.22, seg: 0.25 });
+    const st = T.limb(p0, d, r.float(1.3, 1.9), r.float(0.2, 0.28), r.float(0.13, 0.18), 0, { gnarl: 0.5, wobble: 0.2, seg: 0.25 });
     for (let k = 0; k < r.int(2, 3); k++) {
       const end = T.at(st, 1);
-      const ld = spread(end.d.clone().lerp(UP, 0.3).normalize(), r.float(0.45, 0.9), r.float(0, 6.28));
-      const limb = T.limb(end.p, ld, r.float(1.4, 2.2), end.r * 0.75, 0.05, 1, { wobble: 0.25, up: -0.15, bend0: end.bend, gnarl: 0.3 });
+      const ld = spread(end.d.clone().lerp(UP, 0.4).normalize(), r.float(0.4, 0.8), r.float(0, 6.28));
+      const limb = T.limb(end.p, ld, r.float(1.4, 2.2), end.r * 0.75, 0.05, 1, { wobble: 0.25, up: 0.1, bend0: end.bend, gnarl: 0.3 });
       for (let j = 0; j < r.int(3, 4); j++) {
-        const at = T.at(limb, r.float(0.4, 1));
+        const at = T.at(limb, r.float(0.35, 1));
         const bd = spread(at.d, r.float(0.5, 1.0), r.float(0, 6.28));
-        const br = T.limb(at.p, bd, r.float(0.8, 1.4), Math.max(0.03, at.r * 0.7), 0.015, 2, { wobble: 0.3, up: -0.35, bend0: at.bend, phase: limb.phase });
+        const br = T.limb(at.p, bd, r.float(0.8, 1.4), Math.max(0.03, at.r * 0.7), 0.015, 2, { wobble: 0.3, up: -0.1, bend0: at.bend, phase: limb.phase });
         tips.push(br);
       }
     }
   }
-  const crownC = new THREE.Vector3(0, 2.6, 0);
+  const crownC = new THREE.Vector3(0, 3.0, 0);
+  const n0 = T.cards.length;
   for (const br of tips) {
     for (let j = 0; j < r.int(4, 6); j++) {
       const at = T.at(br, r.float(0.25, 1));
       const td = spread(at.d, r.float(0.4, 1.0), r.float(0, 6.28));
-      const tw = T.limb(at.p, td, r.float(0.35, 0.7), 0.012, 0.005, 3, { wobble: 0.35, up: -0.3, bend0: at.bend, phase: br.phase, hidden: true });
-      T.dress(tw, 3, r.float(0.85, 1.05), { out: crownC, lift: 0.1, jitter: 0.7 });
+      const tw = T.limb(at.p, td, r.float(0.35, 0.7), 0.012, 0.005, 3, { wobble: 0.35, up: -0.1, bend0: at.bend, phase: br.phase, hidden: true });
+      T.dress(tw, 3, r.float(0.85, 1.05), { out: crownC, lift: 0.15, jitter: 0.7 });
     }
   }
+  // the grazed, pruned skirt: no leaves hanging down round the trunk
+  T.cards = T.cards.filter((c, i) => i < n0 || c.c.y + c.d.y * c.h * 0.5 > 1.5);
   return T;
 }
 
@@ -212,24 +216,28 @@ function pine(seed) {
   const trunk = T.limb(new THREE.Vector3(0, -0.3, 0), lean, H * 0.6, r.float(0.26, 0.34), 0.19, 0, { wobble: 0.04, seg: 1.2 });
   const top = T.at(trunk, 1);
   const tips = [];
-  const nl = r.int(3, 5);
+  const nl = r.int(4, 5);
   for (let k = 0; k < nl; k++) {
-    const ld = spread(top.d, r.float(0.45, 0.8), (k / nl) * 6.28 + r.float(-0.4, 0.4));
-    const limb = T.limb(top.p, ld, r.float(2.4, 3.4), top.r * 0.75, 0.1, 1, { wobble: 0.1, up: 0.1, bend0: top.bend });
+    const ld = spread(top.d, r.float(0.45, 0.75), (k / nl) * 6.28 + r.float(-0.4, 0.4));
+    const limb = T.limb(top.p, ld, r.float(2.2, 3.2), top.r * 0.75, 0.1, 1, { wobble: 0.1, up: 0.1, bend0: top.bend });
     for (let j = 0; j < r.int(3, 4); j++) {
-      const bt = T.at(limb, r.float(0.45, 1));
-      const br = T.limb(bt.p, spread(bt.d, r.float(0.8, 1.25), r.float(0, 6.28)), r.float(2.2, 3.2), Math.max(0.04, bt.r * 0.7), 0.035, 2, { wobble: 0.15, up: 0.35, bend0: bt.bend, phase: limb.phase });
-      for (let m = 0; m < r.int(2, 3); m++) {
-        const st = T.at(br, r.float(0.45, 1));
-        tips.push(T.limb(st.p, spread(st.d, r.float(0.4, 0.9), r.float(0, 6.28)), r.float(0.8, 1.4), 0.03, 0.012, 3, { up: 0.4, bend0: st.bend, phase: br.phase }));
+      const bt = T.at(limb, r.float(0.4, 1));
+      // branches reach out almost level, then turn up at the tips
+      const out = new THREE.Vector3(bt.d.x, 0, bt.d.z).normalize();
+      const bd = rotAxis(out, UP, r.float(-0.9, 0.9)).lerp(UP, r.float(0.2, 0.45)).normalize();
+      const br = T.limb(bt.p, bd, r.float(2.0, 3.2), Math.max(0.04, bt.r * 0.7), 0.035, 2, { wobble: 0.15, up: 0.3, bend0: bt.bend, phase: limb.phase });
+      for (let m = 0; m < r.int(3, 4); m++) {
+        const st = T.at(br, r.float(0.35, 1));
+        const sd = rotAxis(new THREE.Vector3(st.d.x, 0, st.d.z).normalize(), UP, r.float(-1.2, 1.2)).lerp(UP, 0.3).normalize();
+        tips.push(T.limb(st.p, sd, r.float(0.9, 1.5), 0.03, 0.012, 3, { up: 0.3, bend0: st.bend, phase: br.phase }));
       }
     }
   }
   for (const sb of tips) {
-    for (let j = 0; j < r.int(5, 7); j++) {
-      const at = T.at(sb, r.float(0.3, 1));
-      const d = at.d.clone().lerp(UP, 0.65).normalize();
-      T.card(at.p, spread(d, r.float(0, 0.65), r.float(0, 6.28)), r.float(1.3, 1.7), at.bend, sb.phase, 0.4);
+    for (let j = 0; j < r.int(4, 6); j++) {
+      const at = T.at(sb, r.float(0.25, 1));
+      const d = at.d.clone().lerp(UP, 0.45).normalize();
+      T.card(at.p, spread(d, r.float(0, 0.7), r.float(0, 6.28)), r.float(1.4, 1.8), at.bend, sb.phase, 0.15);
     }
   }
   return T;
@@ -486,8 +494,8 @@ function crownOf(T) {
 
 const LOD = {
   near: { keep: 1, grow: 1, maxLevel: 2, radial: [9, 6, 4], every: 1 },
-  mid: { keep: 0.38, grow: 1.45, maxLevel: 1, radial: [6, 4], every: 2 },
-  far: { keep: 0.11, grow: 2.35, maxLevel: 0, radial: [5], every: 3 },
+  mid: { keep: 0.5, grow: 1.32, maxLevel: 1, radial: [6, 4], every: 2 },
+  far: { keep: 0.15, grow: 2.2, maxLevel: 0, radial: [5], every: 3 },
 };
 
 // Near / mid / far geometry for one tree. Far levels keep the outer cards
