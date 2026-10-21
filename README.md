@@ -76,6 +76,7 @@ The game birds are the ones Lebanese hunters go out for, named the way hunters n
 | **B** | Binoculars |
 | **Q** | Whistle: passing thrush and finch flocks may turn towards you or drop into nearby trees |
 | **F** | Dog: send it in when it's on point, otherwise heel / hunt on |
+| **G** | Set out three decoys in front of you (again, near them, to pick them up) |
 | **M** | Map of the hunting ground |
 | **Tab** (hold) | Game bag, scores, your last shots, and notes on each bird |
 | **Enter** | Chat (multiplayer) |
@@ -83,7 +84,7 @@ The game birds are the ones Lebanese hunters go out for, named the way hunters n
 
 **Gamepad** (PlayStation or Xbox): left stick walk, right stick look, **R2** fire, **L2** mount,
 ✕/A jump, ○/B crouch, □/X reload, △/Y pick up, **L1** binoculars, **R1** whistle, d-pad up dog,
-d-pad down map, L3 run, Options pause.
+d-pad down map, L3 run, R3 decoys, Options pause.
 
 The compass at the top marks downed birds (gold ones are yours) with their distance, and your dog
 when it's on point. The arrow under the clock shows where the wind is blowing.
@@ -105,6 +106,8 @@ quail. In the woods, woodcock flush within a few metres, so keep the gun ready.
 - **How did I miss?** After each shot at a bird the game tells you where the pattern went:
   behind or ahead of a crossing bird, over or under, and by how much. The end-of-hunt summary
   turns that into advice.
+- **Decoys (مطاعم)**: woodpigeon, turtle-dove or thrush decoys, set out into the wind. Passing
+  flocks of the same kind may swing in low over them — if nobody is moving about in the open.
 - **Challenges (تحديات)**: a right and left, five quail without a miss, woodcock at dusk, a
   thrush at 40 m and more, with one daily challenge worth a bonus.
 - **Map (M)**, **bird guide (دليل الطيور)** with portraits and real calls, and a full
