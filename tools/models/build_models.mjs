@@ -158,7 +158,8 @@ function bakeAO(doc, prim, rays = 40) {
       }
       if (!hit) open++;
     }
-    const ao = Math.pow(open / rays, 0.8);
+    // never quite black: light bounces into the deepest cracks too
+    const ao = 0.25 + 0.75 * Math.pow(open / rays, 0.8);
     out[v * 3] = out[v * 3 + 1] = out[v * 3 + 2] = ao;
   }
   prim.setAttribute('COLOR_0', doc.createAccessor().setType('VEC3').setArray(out).setBuffer(doc.getRoot().listBuffers()[0]));

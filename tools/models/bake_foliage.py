@@ -337,15 +337,15 @@ def main():
     atlases['pine'] = pine_cells
 
     # Cilician fir: one big spray per cell
-    fir_tint = dict(mul=(0.9, 1.0, 0.9), sat=0.9, gain=1.08)
+    fir_tint = dict(mul=(0.9, 1.0, 0.9), sat=0.9, gain=1.18)
     atlases['fir'] = [spray_cell(rnd, [sprays[i]], 1, CELL * 0.96, 0, fir_tint) for i in (0, 1, 3, 4)]
 
     # Lebanon cedar: flat plates of short sprays, blue-green
-    cedar_tint = dict(mul=(0.82, 0.96, 0.95), sat=0.55, gain=1.08)
+    cedar_tint = dict(mul=(0.82, 0.96, 0.95), sat=0.55, gain=1.2)
     atlases['cedar'] = [spray_cell(rnd, sprays + small_sprays, n, CELL * 0.6, 55, cedar_tint) for n in (5, 6, 5, 7)]
 
     # Greek juniper: dense masses of fine grey-green sprays with a few berries
-    jun_tint = dict(mul=(0.8, 0.92, 0.86), sat=0.45, gain=1.12)
+    jun_tint = dict(mul=(0.82, 0.94, 0.88), sat=0.45, gain=1.32)
     jun = []
     for n in (9, 11, 10, 12):
         c = spray_cell(rnd, sprays + small_sprays, n, CELL * 0.42, 70, jun_tint, back_dark=0.6)
