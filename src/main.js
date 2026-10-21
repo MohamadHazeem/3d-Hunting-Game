@@ -25,6 +25,7 @@ import { t, num, isAr, applyI18n, setLang } from './core/i18n.js';
 import { HUD } from './ui/hud.js';
 import { HuntMap } from './ui/map.js';
 import { openGuide } from './ui/guide.js';
+import { Hints } from './ui/hints.js';
 import { Net } from './net/net.js';
 import { Avatar } from './net/avatar.js';
 
@@ -240,6 +241,8 @@ class Game {
     this.ambientShot = 15;
     this.markers = [];
     this.shotLog = [];
+    this.hints = new Hints($('hint'));
+    this.hints.enabled = settings.hints;
     this.companion = new Companion();
     this.companion.enabled = settings.companion;
     this.challenges = new ChallengeTracker((c, how) => this.onChallenge(c, how));
@@ -338,6 +341,7 @@ class Game {
         onDeliver: (id) => this.deliver(id),
         onPoint: (b) => {
           this.hud.message(t('dogPoint'), 'kill');
+          this.hints.show('point');
           this.companion.onDogPoint();
         },
       });
@@ -384,6 +388,7 @@ class Game {
     else if (k === 'showFps') $('fps').classList.toggle('hidden', !v);
     else if (k === 'crosshair') this.hud.crosshairOn = v;
     else if (k === 'companion' && this.companion) this.companion.enabled = v;
+    else if (k === 'hints' && this.hints) this.hints.enabled = v;
   }
 
   // How strong the migration is today: some mornings the thrush pour through,
@@ -444,6 +449,7 @@ class Game {
     const wn = this.wind.name;
     this.hud.message(t('wind', { dir: wn.en, speed: num(this.wind.speed.toFixed(0)), ar: `<span class="ar">${wn.ar}</span>` }), 'info');
     this.companion.onStart(this.atmo.hour);
+    setTimeout(() => this.hints.show('start'), 5000);
     if (this.mode === 'host') this.hud.message(t('shareCode', { code: `<b style="color:#e2a23b;letter-spacing:.2em">${this.net.code}</b>` }), 'info');
     this.hud.pause(true, this.net ? `Hunt code: ${this.net.code}` : '');
     audio.setScene({
@@ -703,6 +709,7 @@ class Game {
     this.shotLog.push(entry);
     const before = this.challenges.thisHunt.length;
     this.challenges.onShot(this.shotLog, entry);
+    if (entry.result === 'miss' && entry.spId) this.hints.show('miss');
     const prev = this.shotLog[this.shotLog.length - 2];
     const double = entry.result === 'kill' && prev && prev.result === 'kill' && prev.loadId === entry.loadId && prev.barrel !== entry.barrel && entry.time - prev.time < 6;
     this.companion.onShot(entry, double || (this.challenges.thisHunt.length > before && this.challenges.thisHunt.at(-1) === 'rightLeft'));
@@ -786,6 +793,7 @@ class Game {
     }
     if (m.by === this.myId) {
       if (settings.hitMarker) this.hud.hitMarker(true);
+      if (!sp.protected) setTimeout(() => this.hints.show('down'), 1500);
       audio.play('hitConfirm', null, { gain: 0.25 });
       const dist = m.dist || this.lastShotDist || 0;
       if (sp.protected) {
@@ -805,6 +813,7 @@ class Game {
     if (m.by !== this.myId) return;
     const sp = SPECIES[m.sp];
     if (settings.hitMarker) this.hud.hitMarker(false);
+    this.hints.show('wounded');
     this.hud.message(t('wounded', { ar: `<span class="ar">${sp.ar}</span>` }), 'info');
   }
 
@@ -958,6 +967,8 @@ class Game {
       }
       this.wind.update(sim);
       this.companion.update(sim, this);
+      if (this.clock.elapsedTime > 70) this.hints.show('binocs');
+      if (this.birds.groups.some((g) => g.announced)) this.hints.show('flock');
       windUniforms.uWind.value = 0.35 + this.wind.speed / 5;
       this.updateSoundscape(sim);
       if (elev < 4 && this.atmo.hour > 12 && !this.duskWarned) {
@@ -1047,7 +1058,10 @@ class Game {
     if (near) hud.prompt(t('pickUp', { ar: `<span class="ar">${near.sp.ar}</span>`, en: near.sp.en }));
     else if (this.boards.boards.length && this.boards.nearFiringPoint(me) && this.clock.elapsedTime < 240) hud.prompt(t('boardsPrompt', { list: this.boards.boards.map((b) => num(b.dist)).join(' · ') }));
     else if (this.player.outOfBounds > 0) hud.prompt(t('edge'));
-    else if (!gun.canFire && !gun.reloading) hud.prompt(t('reload'));
+    else if (!gun.canFire && !gun.reloading) {
+      hud.prompt(t('reload'));
+      this.hints.show('reload');
+    }
     else hud.prompt('');
     const showBoard = this.input.down('Tab');
     if (showBoard !== this.boardShown || (showBoard && Math.random() < 0.05)) {

@@ -610,6 +610,8 @@ export class Shotgun {
     const m = this.model;
     // aim-down-sights blend
     const wantAds = input.mouseDown(2) && !this.reloading && !player.binocs;
+    // jacket rustle as the gun comes up to the shoulder
+    if (wantAds && !player.ads) audio.play('cloth', null, { gain: 0.12, rate: 1.25 });
     player.ads = wantAds;
     this.ads += ((wantAds ? 1 : 0) - this.ads) * Math.min(1, dt * 11);
 

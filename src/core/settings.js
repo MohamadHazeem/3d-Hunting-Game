@@ -16,6 +16,7 @@ const DEFAULTS = {
   markers: true,
   dog: true,
   companion: true,
+  hints: true,
   choke0: 'IC',
   choke1: 'F',
   shotSize: '8',

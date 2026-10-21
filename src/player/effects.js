@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { audio } from '../audio/audio.js';
 
 // Soft particles for gun smoke and dust kicked up by shot hitting the ground,
 // plus ejected shell hulls.
@@ -144,6 +145,11 @@ export class ShellHulls {
       const g = this.terrain.height(s.m.position.x, s.m.position.z) + 0.011;
       if (s.m.position.y < g) {
         s.m.position.y = g;
+        // the first bounce of a plastic hull on the ground
+        if (!s.landed) {
+          s.landed = true;
+          audio.play('shellDrop', s.m.position, { gain: 0.5, ref: 2, instant: true });
+        }
         if (Math.abs(s.v.y) < 1) {
           s.rest = true;
           s.m.rotation.set(Math.PI / 2, s.m.rotation.y, 0);
