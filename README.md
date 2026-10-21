@@ -43,6 +43,10 @@ The game birds are the ones Lebanese hunters go out for, named the way hunters n
   perched birds watch you and go when you stand up close. Quail often run before they flush,
   woodcock jink between the trunks, and wounded birds tower and fall, glide down far off, or carry
   on. Game birds flush into the wind and are wilder on a windy day.
+- **Weather.** Each day picks its weather from what that ground gets in that month: morning fog
+  in the Koura valleys that burns off by half past nine, dawn ground fog and hot haze in the Bekaa,
+  overcast, drizzle, rain and mist in the Chouf, snow showers in Akkar, passing showers. Rain wets
+  the ground and keeps birds down; fog hides you from them but also hides them from you.
 - **Wind and migration.** Each day has its own wind (mostly westerly off the sea, strongest on the
   highlands) and its own passage: some mornings the thrush pour through, others are quiet.
 - **Birds aren't always killed by one hit.** A bird hit by too few pellets may carry on wounded
