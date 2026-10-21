@@ -5,9 +5,11 @@ olive terraces above the sea, the Bekaa stubble fields, the Chouf oak woods and 
 country of Akkar. It runs in Chrome/Edge/Firefox with no install, and you can hunt together with
 friends over the internet using a 5-letter code.
 
-| Koura olive terraces at dawn | Chouf woods, December dusk | A quail down in the Bekaa |
+| Koura olive terraces at dawn | Bekaa fields, ground mist | Chouf oak woods, afternoon |
 |---|---|---|
-| ![Koura](docs/koura.jpg) | ![Chouf](docs/chouf.jpg) | ![Bekaa](docs/bekaa-quail.jpg) |
+| ![Koura](docs/ground-koura.jpg) | ![Bekaa](docs/ground-bekaa.jpg) | ![Chouf](docs/ground-chouf.jpg) |
+| **Akkar juniper highlands** | **Dry-stone terraces (سناسل)** | **A quail down in the Bekaa** |
+| ![Akkar](docs/ground-akkar.jpg) | ![Terraces](docs/ground-free.jpg) | ![Bekaa](docs/bekaa-quail.jpg) |
 
 ## The birds
 

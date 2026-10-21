@@ -39,6 +39,9 @@ settings.hunt = HUNTS[0].id;
 function renderMenu() {
   const el = $('hunts');
   el.innerHTML = '';
+  // the chosen hunting ground fills the background, as it looks in the game
+  const base = import.meta.env.BASE_URL || '/';
+  $('menu').style.setProperty('--ground', `url("${base}menu/${settings.hunt}.jpg")`);
   for (const h of HUNTS) {
     const card = document.createElement('div');
     card.className = 'hunt' + (h.id === settings.hunt ? ' sel' : '');
