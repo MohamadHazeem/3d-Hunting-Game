@@ -22,7 +22,7 @@ import { Companion } from './audio/companion.js';
 import { settings, setSetting, onSettingChange, bindSettings } from './core/settings.js';
 import { ChallengeTracker, challengeListHtml, CHALLENGES } from './core/challenges.js';
 import { t, num, isAr, applyI18n, setLang } from './core/i18n.js';
-import { HUD } from './ui/hud.js';
+import { HUD, esc } from './ui/hud.js';
 import { HuntMap } from './ui/map.js';
 import { openGuide } from './ui/guide.js';
 import { Hints } from './ui/hints.js';
@@ -616,6 +616,10 @@ class Game {
       net.on('whistle', (m) => audio.play('whistle', new THREE.Vector3(...m.p), { gain: 0.9, ref: 6, rate: 1.8 }));
       net.on('chat', (m) => this.hud.chat(m.from, m.text));
       net.on('decoys', (m) => this.showDecoys(m.id, m.list));
+      net.on('end', () => {
+        this.hud.message(t('nightfall'), 'warn');
+        setTimeout(() => this.endHunt(), 3500);
+      });
       net.on('hour', (m) => (this.atmo.hour = m.hour));
       net.on('hostLost', () => {
         this.hud.message(t('hostEnded'), 'warn');
@@ -1072,10 +1076,11 @@ class Game {
         this.companion.onDusk();
       }
       // after dark the hunt is over
-      if (this.atmo.hour >= this.atmo.month.set + 0.24) {
+      if (this.authority && this.atmo.hour >= this.atmo.month.set + 0.24) {
         this.nightT = (this.nightT || 0) + sim;
         if (this.nightT > 45 && !this.ended) {
           this.hud.message(t('nightfall'), 'warn');
+          if (this.net) this.net.broadcast({ t: 'end' });
           setTimeout(() => this.endHunt(), 3500);
           this.nightT = -1e9;
         }
@@ -1135,7 +1140,10 @@ class Game {
       }
     }
     const canRest = this.authority && this.atmo.hour > 10.3 && this.atmo.hour < this.atmo.month.set - 2.5;
-    $('btnRest').classList.toggle('hidden', !canRest);
+    if (canRest !== this.canRest) {
+      this.canRest = canRest;
+      $('btnRest').classList.toggle('hidden', !canRest);
+    }
     hud.setWind(this.wind.from, this.wind.speed, this.player.yaw);
     // markers for downed birds
     const markers = [];
@@ -1248,6 +1256,3 @@ function summaryHtml(me, log, hunt, challengesDone = []) {
     <p class="dim">${isAr() ? `${hunt.ar} · ${hunt.monthAr}` : `${hunt.en} · ${hunt.month}`}</p>`;
 }
 
-function esc(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-}

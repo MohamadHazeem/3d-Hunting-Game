@@ -36,7 +36,15 @@ export class Companion {
     if (this.scanT > 0) return;
     this.scanT = 0.4;
     const me = game.player.pos;
-    for (const g of game.birds.groups) {
+    // joining players have no flock groups (only the host simulates them):
+    // treat each flying bird as its own "group", one call per species a while
+    const groups = game.authority ? game.birds.groups : [...game.birds.birds.values()].filter((b) => b.state === 'flying').map((b) => ({ members: [b], ref: b }));
+    this.recent = this.recent || {};
+    for (const g of groups) {
+      if (g.ref) {
+        if (g.ref.announced || game.birds.time - (this.recent[g.ref.spId] || -99) < 8) continue;
+        g.announced = false;
+      }
       if (g.announced) continue;
       const lead = g.members.find((m) => game.birds.birds.has(m.id) && m.state === 'flying');
       if (!lead || lead.sp.protected) continue;
@@ -49,6 +57,8 @@ export class Companion {
       const closing = (v.x * dx + v.z * dz) / (d * (Math.hypot(v.x, v.z) || 1));
       if (closing < 0.6) continue;
       g.announced = true;
+      if (g.ref) g.ref.announced = true;
+      this.recent[lead.spId] = game.birds.time;
       // which side is it coming from, relative to where you face?
       const bearing = Math.atan2(p.x - me.x, -(p.z - me.z));
       let rel = bearing + game.player.yaw;

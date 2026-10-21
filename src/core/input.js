@@ -63,7 +63,10 @@ export class Input {
     const ry = dead(gp.axes[3] || 0);
     const pressed = (i) => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.4));
     const anyInput = lx || ly || rx || ry || gp.buttons.some((b) => b.pressed);
-    if (anyInput && !this.padActive && !pressed(9)) this.padActive = true;
+    if (anyInput && !this.padActive && !pressed(9)) {
+      this.padActive = true;
+      if (this.onLockChange) this.onLockChange(this.engaged);
+    }
     if (lx < -0.3) now.add('KeyA');
     if (lx > 0.3) now.add('KeyD');
     if (ly < -0.3) now.add('KeyW');
