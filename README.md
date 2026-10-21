@@ -108,6 +108,10 @@ quail. In the woods, woodcock flush within a few metres, so keep the gun ready.
   turns that into advice.
 - **Decoys**: woodpigeon, turtle-dove or thrush decoys, set out into the wind. Passing
   flocks of the same kind may swing in low over them — if nobody is moving about in the open.
+- **Harvest, trophies and levels** (as in theHunter: Call of the Wild): every bird has its own
+  weight, the heaviest earn bronze, silver, gold or diamond medals, and each bird you bag gets a
+  harvest card. Your best bird of each kind hangs in the **trophy lodge** on the menu, and every
+  harvest earns XP towards your hunter level.
 - **Challenges**: a right and left, five quail without a miss, woodcock at dusk, a
   thrush at 40 m and more, with one daily challenge worth a bonus.
 - **Map (M)**, **bird guide** with portraits and real calls, and a full
