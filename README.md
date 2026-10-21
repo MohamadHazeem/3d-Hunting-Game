@@ -73,8 +73,9 @@ The game birds are the ones hunters go out for in Lebanon. The game is in Englis
 | **R** | Break open and reload (also happens when you click with both barrels empty) |
 | **W A S D** / Shift / C / Space | Walk / run / crouch / jump |
 | **E** | Pick up a downed bird |
-| **B** | Binoculars |
-| **Q** | Whistle: passing thrush and finch flocks may turn towards you or drop into nearby trees |
+| **B** | Binoculars: birds you look at are marked with species and distance for 30 s |
+| **Q** | Blow your caller: thrush whistle (flocks turn in), quail call (hidden quail answer), dove cooer (doves and pigeons come to the trees) |
+| **V** (or 1–3) | Change caller |
 | **F** | Dog: send it in when it's on point, otherwise heel / hunt on |
 | **G** | Set out three decoys in front of you (again, near them, to pick them up) |
 | **M** | Map of the hunting ground |
@@ -84,13 +85,28 @@ The game birds are the ones hunters go out for in Lebanon. The game is in Englis
 
 **Gamepad** (PlayStation or Xbox): left stick walk, right stick look, **R2** fire, **L2** mount,
 ✕/A jump, ○/B crouch, □/X reload, △/Y pick up, **L1** binoculars, **R1** whistle, d-pad up dog,
-d-pad down map, L3 run, R3 decoys, Options pause.
+d-pad down map, d-pad right change caller, L3 run, R3 decoys, Options pause.
 
 The compass at the top marks downed birds (gold ones are yours) with their distance, and your dog
 when it's on point. The arrow under the clock shows where the wind is blowing.
 
 Tips: crouch and move slowly to get close to perched thrush. Walk the stubble in a line to flush
 quail. In the woods, woodcock flush within a few metres, so keep the gun ready.
+
+## Finding birds
+
+- **Birds you can see.** By default birds are drawn about 1.8× life size (and hit as big as they
+  look); switch to "Realistic" under Settings → Aiming help for true size. They stand out dark
+  against the sky.
+- **Spotting.** Look at birds through the binoculars (B) and they're marked with species and
+  distance, on screen and on the compass. Arrows at the edge of the screen show flocks heading
+  your way.
+- **Need zones**, as in theHunter: Call of the Wild. Each ground has feeding, roosting and drinking
+  spots that birds use at set hours (thrush in the olive groves at dawn, woodpigeon in the oaks
+  mid-morning, doves at the water in the evening…). Find one by spotting birds there or finding
+  feathers and droppings; it then shows on the map (M) with its hours. A line under the compass
+  always tells you what to do next.
+- **Visibility and noise meters** show how much the birds can see and hear of you.
 
 ## Your dog, your companion and the practice boards
 
