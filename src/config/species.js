@@ -1,12 +1,13 @@
-// Game birds hunted in Lebanon, using the names Lebanese hunters use.
+// Game birds hunted in Lebanon. `ar` is the standard Arabic name.
 // Sizes are real-world measurements (metres). Flight numbers are tuned from
 // field observations: cruise speeds, wingbeat style and typical heights.
 
 export const SPECIES = {
   quail: {
     id: 'quail',
-    noteAr: 'مهاجر بالخريف (أيلول–تشرين). بيتخبّى بالحصيدة والحشيش اليابس، بيطلع من تحت إجريك وبيطير واطي ودغري.',
-    ar: 'فري',
+    noteAr: 'طائر مهاجر في الخريف (أيلول–تشرين الأول). يختبئ بين بقايا الحصاد والأعشاب اليابسة، ثم ينطلق من تحت قدميك ويطير منخفضًا ومستقيمًا.',
+    ar: 'السمّان',
+    short: 'Quail',
     en: 'Common Quail',
     latin: 'Coturnix coturnix',
     note: 'Autumn migrant (Sept–Oct). Hides in stubble and dry grass, bursts up at your feet and flies low and straight.',
@@ -33,8 +34,9 @@ export const SPECIES = {
   },
   woodcock: {
     id: 'woodcock',
-    noteAr: 'زاير بالشتي (تشرين التاني–كانون التاني). بيقعد ساكت بأرض حرش السنديان، بيطلع متأخر وبيلفّ بين الشجر. هو الطير الغالي.',
-    ar: 'شكب',
+    noteAr: 'زائر شتوي (تشرين الثاني–كانون الثاني). يلزم أرض غابات البلوط بصمت، وينطلق متأخرًا ويراوغ بين الأشجار. إنه الطائر الأثمن.',
+    ar: 'دجاجة الأرض',
+    short: 'Woodcock',
     en: 'Eurasian Woodcock',
     latin: 'Scolopax rusticola',
     note: 'Winter visitor (Nov–Jan). Sits tight on the oak-forest floor, flushes late and twists between the trees. The prize bird.',
@@ -60,8 +62,9 @@ export const SPECIES = {
   },
   songThrush: {
     id: 'songThrush',
-    noteAr: 'بيمرق بالكميّات عالضو بتشرين الأول والتاني، بيطير بين كروم الزيتون وبينزل عالشجر ليتغدّى.',
-    ar: 'سمن',
+    noteAr: 'تعبر بأعداد كبيرة عند الفجر في تشرين الأول والثاني، فتطير بين بساتين الزيتون وتهبط على الأشجار لتتغذى.',
+    ar: 'السمنة المغرّدة',
+    short: 'Song thrush',
     en: 'Song Thrush',
     latin: 'Turdus philomelos',
     note: 'Passes in numbers at dawn in Oct–Nov, flying through the olive groves and dropping into the trees to feed.',
@@ -89,8 +92,9 @@ export const SPECIES = {
   },
   fieldfare: {
     id: 'fieldfare',
-    noteAr: 'سمن الشتي الكبير بجرود اللزّاب (كانون الأول–كانون التاني). بيمشي بسروب صوتها عالي: «تشاك تشاك».',
-    ar: 'كيخن',
+    noteAr: 'سمنة شتوية كبيرة في مرتفعات العرعر (كانون الأول–كانون الثاني)، تتنقل في أسراب متفرقة صاخبة.',
+    ar: 'سمنة الحقول',
+    short: 'Fieldfare',
     en: 'Fieldfare / Mistle Thrush',
     latin: 'Turdus pilaris',
     note: 'Big winter thrush of the high juniper country (Dec–Jan). Travels in loose, noisy flocks, "chack-chack".',
@@ -117,8 +121,9 @@ export const SPECIES = {
   },
   chaffinch: {
     id: 'chaffinch',
-    noteAr: 'مقيم، وبيجي منه سروب كبيرة من أوروبا بالخريف. طيرانه متل الموج، عجوانحه خطوط بيض، وصوته «بينك بينك».',
-    ar: 'صلنج',
+    noteAr: 'طائر مقيم، وتصل منه أسراب كبيرة من أوروبا في الخريف. طيرانه متموّج، وعلى جناحيه خطوط بيضاء.',
+    ar: 'الشرشور',
+    short: 'Chaffinch',
     en: 'Common Chaffinch',
     latin: 'Fringilla coelebs',
     note: 'Resident plus big autumn flocks from Europe (Oct–Nov). Bounding flight, white wing bars, "pink-pink" call.',
@@ -145,8 +150,9 @@ export const SPECIES = {
   },
   turtleDove: {
     id: 'turtleDove',
-    noteAr: 'مهاجر آخر الصيف (آب–أيلول). يمام صغير وسريع، بيمرق بمجموعات صغيرة فوق البقاع والساحل. عدده عم يقلّ — خفّف منه.',
-    ar: 'ترغل',
+    noteAr: 'مهاجر في أواخر الصيف (آب–أيلول). يمام صغير سريع يعبر في مجموعات صغيرة فوق البقاع والساحل. أعداده في تراجع، فلا تُكثر من صيده.',
+    ar: 'القمري الأوروبي',
+    short: 'Turtle dove',
     en: 'European Turtle Dove',
     latin: 'Streptopelia turtur',
     note: 'Late-summer migrant (Aug–Sept). A small, fast dove on flicking wingbeats, passing in small parties over the Bekaa and the coast and dropping into the fields to feed. Numbers are falling — take few.',
@@ -173,8 +179,9 @@ export const SPECIES = {
   },
   woodpigeon: {
     id: 'woodpigeon',
-    noteAr: 'زاير بالشتي لأحراج السنديان والصنوبر. كبير وتقيل وقلبه قوي: بيطلع من الشجرة بضجّة جوانح وطيرانه قوي ودغري.',
-    ar: 'مطوق',
+    noteAr: 'زائر شتوي لغابات البلوط والصنوبر. كبير وثقيل وصلب، ينطلق من الشجرة بتصفيق أجنحته ويطير بقوة واستقامة.',
+    ar: 'الحمام الخشبي',
+    short: 'Woodpigeon',
     en: 'Common Woodpigeon',
     latin: 'Columba palumbus',
     note: 'Winter visitor to the oak and pine woods (Nov–Feb). Big, heavy and tough: a clattering take-off and a powerful direct flight, white wing bands flashing.',
@@ -201,11 +208,12 @@ export const SPECIES = {
   },
   stork: {
     id: 'stork',
-    noteAr: 'محمي. بيمرق فوق لبنان بسروب ضخمة عم تحوّم. ممنوع تقوّص عليه — الصيّاد الحقيقي بيعرف طيوره.',
-    ar: 'لقلق أبيض',
+    noteAr: 'طائر محمي. يعبر سماء لبنان في أسراب ضخمة تحلّق في دوائر. صيده ممنوع منعًا باتًا.',
+    ar: 'اللقلق الأبيض',
+    short: 'White stork',
     en: 'White Stork (protected)',
     latin: 'Ciconia ciconia',
-    note: 'PROTECTED. Migrates over Lebanon in huge soaring flocks. Never shoot — a real hunter knows his birds.',
+    note: 'PROTECTED. Migrates over Lebanon in huge soaring flocks. Never shoot one — a real hunter knows his birds.',
     protected: true,
     length: 1.0,
     wingspan: 1.95,

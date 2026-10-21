@@ -1,4 +1,4 @@
-# صيد لبنان · Lebanon Hunt 3D
+# Lebanon Hunt 3D
 
 A first-person 3D bird-hunting game for the browser, set in real Lebanese hunting country:
 olive terraces above the sea, the Bekaa stubble fields, the Chouf oak woods and the high juniper
@@ -8,28 +8,24 @@ friends over the internet using a 5-letter code.
 | Koura olive terraces at dawn | Bekaa fields, ground mist | Chouf oak woods, afternoon |
 |---|---|---|
 | ![Koura](docs/ground-koura.jpg) | ![Bekaa](docs/ground-bekaa.jpg) | ![Chouf](docs/ground-chouf.jpg) |
-| **Akkar juniper highlands** | **Dry-stone terraces (سناسل)** | **A quail down in the Bekaa** |
+| **Akkar juniper highlands** | **Dry-stone terraces** | **A quail down in the Bekaa** |
 | ![Akkar](docs/ground-akkar.jpg) | ![Terraces](docs/ground-free.jpg) | ![Bekaa](docs/bekaa-quail.jpg) |
 
 ## The birds
 
-The game birds are the ones Lebanese hunters go out for, named the way hunters name them.
+The game birds are the ones hunters go out for in Lebanon. The game is in English; the Arabic option uses Modern Standard Arabic names.
 
 | Name | Bird | Where & when in the game | How it behaves |
 |---|---|---|---|
-| **فري** (Ferri) | Common Quail, *Coturnix coturnix* | Bekaa stubble, September | Sits tight in the grass and bursts up at your feet with a loud whirr, then flies low and straight for 60–150 m and drops back in. You can walk it up again. Small groups (coveys) are common. |
-| **سمن** (Summun) | Song Thrush, *Turdus philomelos* | Koura olive terraces, October–November | Passes at first light along flight lines, singly or in small groups, with a thin *tsip* call. Some drop into the olive trees to feed and flush when you get close. |
-| **صلنج** (Salanj) | Common Chaffinch, *Fringilla coelebs* | Olive groves & highlands, October–November | Flocks with a bounding flap-and-close flight, white wing bars and a *pink-pink* call. Small and quick. |
-| **كيخن** (Kikhen) | Fieldfare / Mistle Thrush, *Turdus pilaris* | Akkar juniper highlands, January | A big winter thrush in loose, noisy *chack-chack* flocks over the junipers (لزاب). |
-| **شكب** (Shikab) | Eurasian Woodcock, *Scolopax rusticola* | Chouf oak woods, December, late afternoon | Hides on the leaf litter, flushes very late and twists between the trees. The prize bird, worth the most points. |
-| **ترغل** (Tirghel) | European Turtle Dove, *Streptopelia turtur* | Bekaa and Koura, late summer | Small, fast dove on flicking wingbeats, passing in small parties and purring from the trees. Declining — take few. |
-| **مطوق** (Mtawwaq) | Common Woodpigeon, *Columba palumbus* | Chouf and Akkar woods, winter | Big, tough and wary: claps its wings as it clatters out of a tree, white wing bands flashing. Needs a well-placed shot. |
-| لقلق أبيض | White Stork | Overhead in migration | **Protected.** Shooting one costs you 250 points. |
+| **Quail** (السمّان) | Common Quail, *Coturnix coturnix* | Bekaa stubble, September | Sits tight in the grass and bursts up at your feet with a loud whirr, then flies low and straight for 60–150 m and drops back in. You can walk it up again. Small groups (coveys) are common. |
+| **Song thrush** (السمنة المغرّدة) | Song Thrush, *Turdus philomelos* | Koura olive terraces, October–November | Passes at first light along flight lines, singly or in small groups, with a thin *tsip* call. Some drop into the olive trees to feed and flush when you get close. |
+| **Chaffinch** (الشرشور) | Common Chaffinch, *Fringilla coelebs* | Olive groves & highlands, October–November | Flocks with a bounding flap-and-close flight, white wing bars and a *pink-pink* call. Small and quick. |
+| **Fieldfare** (سمنة الحقول) | Fieldfare / Mistle Thrush, *Turdus pilaris* | Akkar juniper highlands, January | A big winter thrush in loose, noisy *chack-chack* flocks over the junipers (لزاب). |
+| **Woodcock** (دجاجة الأرض) | Eurasian Woodcock, *Scolopax rusticola* | Chouf oak woods, December, late afternoon | Hides on the leaf litter, flushes very late and twists between the trees. The prize bird, worth the most points. |
+| **Turtle dove** (القمري) | European Turtle Dove, *Streptopelia turtur* | Bekaa and Koura, late summer | Small, fast dove on flicking wingbeats, passing in small parties and purring from the trees. Declining — take few. |
+| **Woodpigeon** (الحمام الخشبي) | Common Woodpigeon, *Columba palumbus* | Chouf and Akkar woods, winter | Big, tough and wary: claps its wings as it clatters out of a tree, white wing bands flashing. Needs a well-placed shot. |
+| **White stork** (اللقلق الأبيض) | White Stork, *Ciconia ciconia* | Overhead in migration | **Protected.** Shooting one costs you 250 points. |
 
-> Note on names: Lebanese dialect names vary by region. In Lebanon, شكب is used for the woodcock
-> (in Syria it usually means the jack snipe), and كيخن covers the fieldfare and the mistle thrush
-> ("كيخن لزاب"). If your village uses a name differently, it's a one-line change in
-> `src/config/species.js`.
 
 ## How realistic is it?
 
@@ -96,26 +92,26 @@ when it's on point. The arrow under the clock shows where the wind is blowing.
 Tips: crouch and move slowly to get close to perched thrush. Walk the stubble in a line to flush
 quail. In the woods, woodcock flush within a few metres, so keep the gun ready.
 
-## Your dog, Abu Ali, and the practice boards
+## Your dog, your companion and the practice boards
 
-- **The pointer (كلب الصيد).** It works the ground in a zig-zag ahead of you and winds hidden
+- **The pointer.** It works the ground in a zig-zag ahead of you and winds hidden
   quail and woodcock — from much further when the breeze carries the scent to it. When it locks
   on point, its bell goes quiet (listen for the silence). Walk in, or press **F** to send it in.
   It retrieves the birds you drop. You can leave it at home from the menu.
-- **Abu Ali (أبو علي)**, your companion, calls the birds in Lebanese Arabic as they come
-  ("فرّي! فرّي!", "سمن جايي!", "عالشمال!"), warns you about storks and unsafe shots, and has
-  something to say about your shooting. Switch him off in Settings → Sound.
+- **Your companion** calls out incoming birds ("Thrush coming in!", "Birds on your left!"), warns you
+  about storks and unsafe shots, and comments on your shooting, in English (or standard Arabic).
+  Switch him off in Settings → Sound.
 - **Practice boards** stand at 20, 30 and 40 m to the right of where you start. Shoot one to see
   the real pattern of your choke and cartridge, with the count in the 75 cm circle.
 - **How did I miss?** After each shot at a bird the game tells you where the pattern went:
   behind or ahead of a crossing bird, over or under, and by how much. The end-of-hunt summary
   turns that into advice.
-- **Decoys (مطاعم)**: woodpigeon, turtle-dove or thrush decoys, set out into the wind. Passing
+- **Decoys**: woodpigeon, turtle-dove or thrush decoys, set out into the wind. Passing
   flocks of the same kind may swing in low over them — if nobody is moving about in the open.
-- **Challenges (تحديات)**: a right and left, five quail without a miss, woodcock at dusk, a
+- **Challenges**: a right and left, five quail without a miss, woodcock at dusk, a
   thrush at 40 m and more, with one daily challenge worth a bonus.
-- **Map (M)**, **bird guide (دليل الطيور)** with portraits and real calls, and a full
-  **Arabic interface** (switch at the top of the menu).
+- **Map (M)**, **bird guide** with portraits and real calls, and a full
+  **Arabic interface** in Modern Standard Arabic (switch at the top of the menu; English is the default).
 
 ## Hunting with friends
 
@@ -189,7 +185,7 @@ src/
   player/shotgun.js       over-under shotgun, chokes, cartridges, pellet ballistics, shot analysis
   player/boards.js        patterning boards
   audio/audio.js          mixer, samples, echoes off the terrain, ambience
-  audio/companion.js      Abu Ali's voice lines
+  audio/companion.js      the companion's spoken calls (browser text-to-speech)
   core/                   input (keyboard, mouse, gamepad), settings, wind, challenges, i18n
   ui/                     HUD, map, bird guide
   net/net.js, avatar.js   peer-to-peer multiplayer and other hunters' avatars
@@ -210,7 +206,7 @@ with `tools/audio/elevenlabs-sfx.mjs` and `tools/audio/elevenlabs-voice.mjs`; pu
 - 3D engine: [three.js](https://threejs.org). Multiplayer: [PeerJS](https://peerjs.com).
 - Bird recordings: xeno-canto recordists via Wikimedia Commons (CC BY-SA 4.0), listed in
   [public/audio/CREDITS.md](public/audio/CREDITS.md).
-- Effects, ambience and Abu Ali's voice: generated with [ElevenLabs](https://elevenlabs.io).
+- Effects and ambience: generated with [ElevenLabs](https://elevenlabs.io).
 - Everything else (trees, birds, dog, gun, sky) is generated in code.
 
 Please hunt responsibly and within Lebanese law. Respect the seasons and the bag limits, and never

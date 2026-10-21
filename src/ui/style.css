@@ -35,7 +35,7 @@ canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: blo
 }
 .menu-inner { max-width: 1180px; margin: 0 auto; padding: 32px 20px 48px; }
 .brand { text-align: center; margin-bottom: 26px; }
-.brand-ar { font-family: Cairo, sans-serif; font-weight: 800; font-size: 64px; line-height: 1; color: var(--accent); text-shadow: 0 4px 30px rgba(226, 162, 59, 0.35); }
+.brand-ar { font-family: Inter, sans-serif; letter-spacing: -0.02em; font-weight: 800; font-size: 64px; line-height: 1; color: var(--accent); text-shadow: 0 4px 30px rgba(226, 162, 59, 0.35); }
 .brand-ar.small { font-size: 34px; }
 .brand-en { letter-spacing: 0.4em; font-weight: 800; font-size: 18px; margin-top: 8px; }
 .brand-en span { color: var(--olive-2); }
@@ -235,3 +235,12 @@ table.shotlog .ar { margin: 0; color: var(--accent); }
 #dogStatus b { color: var(--ink); }
 #dogStatus.point b { color: #ffffff; text-shadow: 0 0 8px rgba(255, 255, 255, 0.6); }
 .hunt .best { font-size: 11.5px; color: var(--accent); margin-top: 8px; font-weight: 600; }
+
+/* one language at a time: Cairo for Arabic, Inter for English */
+.lang-ar .brand-ar, .lang-ar .hunt .t-ar, .lang-ar .g-ar { font-family: Cairo, sans-serif; letter-spacing: 0; }
+.hunt .t-ar { font-family: Inter, sans-serif; font-size: 19px; direction: ltr; }
+.lang-ar .hunt .t-ar { direction: rtl; font-size: 21px; }
+.g-ar { font-family: Inter, sans-serif; font-size: 19px; }
+.spn { color: var(--accent); font-weight: 700; }
+.chip { font-weight: 600; }
+.lang-ar .brand-en { letter-spacing: 0; font-family: Cairo, sans-serif; }

@@ -17,18 +17,18 @@ import { clamp, smoothstep } from '../core/rng.js';
 // showers: passing cells of rain (or snow), seconds between and during them.
 // wet: how wet the ground already is at the start of the hunt.
 const KINDS = {
-  clear: { en: 'Clear skies', ar: 'صحو', cloud: 0.12, haze: 0.2, build: 0.22 },
-  hazy: { en: 'Hazy and mild', ar: 'سما مغبّشة', cloud: 0.22, haze: 0.62, build: 0.1 },
-  morningFog: { en: 'Morning fog in the valleys', ar: 'ضباب الصبح', cloud: 0.3, haze: 0.4, build: 0.15, fog: { peak: 0.9, clearBy: 9.5 }, wet: 0.3 },
-  showers: { en: 'Passing showers', ar: 'زخّات مطر', cloud: 0.45, haze: 0.15, showers: { gap: [140, 420], dur: [80, 210], peak: [0.35, 0.95], first: [25, 160] }, wet: 0.35 },
-  hotHaze: { en: 'Hot and hazy, dust in the air', ar: 'شوب وغبرة', cloud: 0.04, haze: 0.95 },
-  groundFog: { en: 'Dawn ground fog over the fields', ar: 'ضباب الفجر', cloud: 0.08, haze: 0.45, fog: { peak: 0.75, clearBy: 8.9, ground: true }, wet: 0.25 },
-  overcast: { en: 'Grey and overcast', ar: 'مغيّمة', cloud: 0.9, haze: 0.35 },
-  drizzle: { en: 'Drizzle under low cloud', ar: 'رذاذ', cloud: 0.96, haze: 0.4, fog: { base: 0.22 }, rain: { base: 0.2, vary: 0.1 }, wet: 0.65 },
-  rain: { en: 'Steady winter rain', ar: 'شتي', cloud: 1, haze: 0.35, fog: { base: 0.08 }, rain: { base: 0.62, vary: 0.25 }, wet: 0.85 },
-  mist: { en: 'Mist drifting through the woods', ar: 'غطيطة', cloud: 0.85, haze: 0.4, fog: { base: 0.42, dusk: 0.33, duskAt: [14.9, 16.7] }, wet: 0.45 },
-  coldClear: { en: 'Cold and crystal clear', ar: 'صحو وبرد', cloud: 0.08, haze: 0.02, build: 0.12 },
-  snowShowers: { en: 'Snow showers on the heights', ar: 'زخّات تلج', cloud: 0.72, haze: 0.2, showers: { snow: true, gap: [120, 330], dur: [100, 260], peak: [0.4, 1], first: [15, 120] }, flurry: 0.12, wet: 0.2 },
+  clear: { en: 'Clear skies', ar: 'سماء صافية', cloud: 0.12, haze: 0.2, build: 0.22 },
+  hazy: { en: 'Hazy and mild', ar: 'جو معتدل مع ضباب خفيف', cloud: 0.22, haze: 0.62, build: 0.1 },
+  morningFog: { en: 'Morning fog in the valleys', ar: 'ضباب الصباح في الأودية', cloud: 0.3, haze: 0.4, build: 0.15, fog: { peak: 0.9, clearBy: 9.5 }, wet: 0.3 },
+  showers: { en: 'Passing showers', ar: 'زخّات مطر عابرة', cloud: 0.45, haze: 0.15, showers: { gap: [140, 420], dur: [80, 210], peak: [0.35, 0.95], first: [25, 160] }, wet: 0.35 },
+  hotHaze: { en: 'Hot and hazy, dust in the air', ar: 'حرّ وغبار في الجو', cloud: 0.04, haze: 0.95 },
+  groundFog: { en: 'Dawn ground fog over the fields', ar: 'ضباب الفجر فوق الحقول', cloud: 0.08, haze: 0.45, fog: { peak: 0.75, clearBy: 8.9, ground: true }, wet: 0.25 },
+  overcast: { en: 'Grey and overcast', ar: 'سماء رمادية ملبّدة بالغيوم', cloud: 0.9, haze: 0.35 },
+  drizzle: { en: 'Drizzle under low cloud', ar: 'رذاذ تحت غيوم منخفضة', cloud: 0.96, haze: 0.4, fog: { base: 0.22 }, rain: { base: 0.2, vary: 0.1 }, wet: 0.65 },
+  rain: { en: 'Steady winter rain', ar: 'مطر شتوي متواصل', cloud: 1, haze: 0.35, fog: { base: 0.08 }, rain: { base: 0.62, vary: 0.25 }, wet: 0.85 },
+  mist: { en: 'Mist drifting through the woods', ar: 'ضباب يتسلّل بين الأشجار', cloud: 0.85, haze: 0.4, fog: { base: 0.42, dusk: 0.33, duskAt: [14.9, 16.7] }, wet: 0.45 },
+  coldClear: { en: 'Cold and crystal clear', ar: 'صحو وبرد قارس', cloud: 0.08, haze: 0.02, build: 0.12 },
+  snowShowers: { en: 'Snow showers on the heights', ar: 'زخّات ثلج على المرتفعات', cloud: 0.72, haze: 0.2, showers: { snow: true, gap: [120, 330], dur: [100, 260], peak: [0.4, 1], first: [15, 120] }, flurry: 0.12, wet: 0.2 },
 };
 
 // How often each kind of day comes round in each hunting ground's month.

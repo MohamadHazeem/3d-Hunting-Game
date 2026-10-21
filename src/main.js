@@ -22,7 +22,7 @@ import { audio, VOLUME_DEFAULTS } from './audio/audio.js';
 import { Companion } from './audio/companion.js';
 import { settings, setSetting, onSettingChange, bindSettings } from './core/settings.js';
 import { ChallengeTracker, challengeListHtml, CHALLENGES } from './core/challenges.js';
-import { t, num, isAr, applyI18n, setLang } from './core/i18n.js';
+import { t, num, isAr, applyI18n, setLang, spName, huntName } from './core/i18n.js';
 import { HUD, esc } from './ui/hud.js';
 import { HuntMap } from './ui/map.js';
 import { openGuide } from './ui/guide.js';
@@ -49,11 +49,11 @@ function renderMenu() {
     const card = document.createElement('div');
     card.className = 'hunt' + (h.id === settings.hunt ? ' sel' : '');
     const chips = Object.keys(h.species)
-      .map((s) => `<span class="chip${SPECIES[s].protected ? ' prot' : ''}"><b>${SPECIES[s].ar}</b>${isAr() ? '' : SPECIES[s].en.replace(' (protected)', '')}</span>`)
+      .map((s) => `<span class="chip${SPECIES[s].protected ? ' prot' : ''}">${spName(SPECIES[s])}</span>`)
       .join('');
     const ar = isAr();
-    card.innerHTML = `<div class="t-ar">${h.ar}</div>${ar ? '' : `<div class="t-en">${h.en}</div>`}<div class="t-reg">${ar ? h.regionAr : h.region}</div>
-      <div class="t-when">${ar ? h.monthAr : `${h.month} · ${h.monthAr}`} · ${num(fmtHour(h.startHour))}</div><div class="t-blurb">${ar ? h.blurbAr : h.blurb}</div><div class="birds">${chips}</div>${bestHtml(h.id)}`;
+    card.innerHTML = `<div class="t-ar">${huntName(h)}</div><div class="t-reg">${ar ? h.regionAr : h.region}</div>
+      <div class="t-when">${ar ? h.monthAr : h.month} · ${num(fmtHour(h.startHour))}</div><div class="t-blurb">${ar ? h.blurbAr : h.blurb}</div><div class="birds">${chips}</div>${bestHtml(h.id)}`;
     card.onclick = () => {
       settings.hunt = h.id;
       renderMenu();
@@ -474,15 +474,15 @@ class Game {
     this.hud.show(true);
     this.hud.setRoom(this.net ? this.net.code : null, this.players.size);
     this.updateHudStats();
-    this.hud.message(isAr() ? `<span class="ar">${this.hunt.ar}</span> — ${this.hunt.monthAr}` : `<span class="ar">${this.hunt.ar}</span> ${this.hunt.en} — ${this.hunt.month}`, 'info');
+    this.hud.message(`<b class="spn">${huntName(this.hunt)}</b> — ${isAr() ? this.hunt.monthAr : this.hunt.month}`, 'info');
     const list = Object.keys(this.hunt.species).filter((s) => !SPECIES[s].protected);
-    this.hud.message(t('lookingFor', { list: list.map((s) => `<span class="ar">${SPECIES[s].ar}</span>`).join(' ') }), 'info');
+    this.hud.message(t('lookingFor', { list: list.map((s) => spName(SPECIES[s])).join(isAr() ? '، ' : ', ') }), 'info');
     const flyers = list.some((s) => SPECIES[s].behaviour === 'flyover');
     if (flyers && this.passage.kind === 'big') this.hud.message(t('bigDay'), 'kill');
     else if (flyers && this.passage.kind === 'quiet') this.hud.message(t('quietDay'), 'info');
     const wn = this.wind.name;
-    this.hud.message(t('wind', { dir: wn.en, speed: num(this.wind.speed.toFixed(0)), ar: `<span class="ar">${wn.ar}</span>` }), 'info');
-    this.hud.message(isAr() ? `<span class="ar">${this.weather.ar}</span>` : `${this.weather.en} · <span class="ar">${this.weather.ar}</span>`, 'info');
+    this.hud.message(t('wind', { dir: wn.en, speed: num(this.wind.speed.toFixed(0)), ar: wn.ar }), 'info');
+    this.hud.message(isAr() ? this.weather.ar : this.weather.en, 'info');
     this.companion.onStart(this.atmo.hour);
     setTimeout(() => this.hints.show('start'), 5000);
     if (this.mode === 'host') this.hud.message(t('shareCode', { code: `<b style="color:#e2a23b;letter-spacing:.2em">${this.net.code}</b>` }), 'info');
@@ -748,7 +748,7 @@ class Game {
       entry.side = m.side;
       entry.vert = m.vert;
       if (settings.shotFeedback && entry.result !== 'kill') {
-        const tag = `<span class="ar">${sp.ar}</span> ${num(r.dist.toFixed(0))} ${isAr() ? 'م' : 'm'}`;
+        const tag = `<b class="spn">${spName(sp)}</b> ${num(r.dist.toFixed(0))} ${isAr() ? 'م' : 'm'}`;
         if (entry.result === 'wound') this.hud.message(t('onlyPellets', { tag, n: num(r.hits), how: m.text ? ' — ' + m.text : '' }), 'info');
         else this.hud.message(`${tag} · ${m.text || t('missed')}`, 'info');
       }
@@ -765,7 +765,7 @@ class Game {
   onChallenge(c, how) {
     const me = this.players.get(this.myId);
     if (how.daily) me.score += 50;
-    const title = isAr() ? `<b>${c.ar}</b>` : `<b>${c.en}</b> <span class="ar">${c.ar}</span>`;
+    const title = `<b>${isAr() ? c.ar : c.en}</b>`;
     this.hud.message(t(how.daily ? 'challengeDaily' : 'challenge', { title }), 'kill');
     audio.play('hitConfirm', null, { gain: 0.3, rate: 1.5 });
     this.updateHudStats();
@@ -851,15 +851,15 @@ class Game {
       audio.play('hitConfirm', null, { gain: 0.25 });
       const dist = m.dist || this.lastShotDist || 0;
       if (sp.protected) {
-        this.hud.message(t('stork', { ar: `<span class="ar">${sp.ar}</span>` }), 'warn');
+        this.hud.message(t('stork'), 'warn');
         this.companion.onStork();
       } else {
-        this.hud.message(t('down', { ar: `<span class="ar">${sp.ar}</span>`, en: sp.en, d: num(dist.toFixed(0)) }), 'kill');
+        this.hud.message(t('down', { name: `<b class="spn">${spName(sp)}</b>`, d: num(dist.toFixed(0)) }), 'kill');
       }
       this.updateHudStats();
     } else {
       const p = this.players.get(m.by);
-      if (p) this.hud.message(t('friendDown', { name: esc(p.name), ar: `<span class="ar">${sp.ar}</span>`, en: sp.en }), 'info');
+      if (p) this.hud.message(t('friendDown', { who: esc(p.name), name: `<b class="spn">${spName(sp)}</b>` }), 'info');
     }
   }
 
@@ -868,7 +868,7 @@ class Game {
     const sp = SPECIES[m.sp];
     if (settings.hitMarker) this.hud.hitMarker(false);
     this.hints.show('wounded');
-    this.hud.message(t('wounded', { ar: `<span class="ar">${sp.ar}</span>` }), 'info');
+    this.hud.message(t('wounded', { name: `<b class="spn">${spName(sp)}</b>` }), 'info');
   }
 
   // Another hunter's dog, drawn from what they send.
@@ -902,7 +902,7 @@ class Game {
       list.push({ p: [+x.toFixed(2), +this.terrain.height(x, z).toFixed(2), +z.toFixed(2)], sp });
     }
     this.setMyDecoys(list);
-    this.hud.message(t('decoysOut', { ar: `<span class="ar">${SPECIES[sp].ar}</span>` }), 'info');
+    this.hud.message(t('decoysOut', { name: `<b class="spn">${spName(SPECIES[sp])}</b>` }), 'info');
   }
 
   setMyDecoys(list) {
@@ -964,7 +964,7 @@ class Game {
       audio.play('pickup', null, { gain: 0.6 });
       const sp = SPECIES[m.sp];
       const whose = m.owner !== this.myId ? ` (${esc(this.players.get(m.owner)?.name || '…')})` : '';
-      this.hud.message(t('intoBag', { ar: `<span class="ar">${sp.ar}</span>`, en: sp.en, whose }), 'kill');
+      this.hud.message(t('intoBag', { name: `<b class="spn">${spName(sp)}</b>`, whose }), 'kill');
       this.challenges.onBag(this.players.get(this.myId).bag);
     }
     this.updateHudStats();
@@ -1176,7 +1176,7 @@ class Game {
     if (this.map.open) {
       this.map.draw({ me, yaw: this.player.yaw, players: [...this.players.values()], birds: this.birds.birds.values(), myId: this.myId, boards: this.boards.boards });
     }
-    if (near) hud.prompt(t('pickUp', { ar: `<span class="ar">${near.sp.ar}</span>`, en: near.sp.en }));
+    if (near) hud.prompt(t('pickUp', { name: `<b class="spn">${spName(near.sp)}</b>` }));
     else if (this.boards.boards.length && this.boards.nearFiringPoint(me) && this.clock.elapsedTime < 240) hud.prompt(t('boardsPrompt', { list: this.boards.boards.map((b) => num(b.dist)).join(' · ') }));
     else if (this.player.outOfBounds > 0) hud.prompt(t('edge'));
     else if (!gun.canFire && !gun.reloading) {
@@ -1227,7 +1227,7 @@ function summaryHtml(me, log, hunt, challengesDone = []) {
   const avg = atBirds.length ? atBirds.reduce((a, e) => a + e.dist, 0) / atBirds.length : 0;
   const pct = log.length ? Math.round((me.hits / log.length) * 100) : 0;
   const stat = (v, l) => `<div class="stat"><b>${num(v)}</b><span>${l}</span></div>`;
-  const bagList = GAME_SPECIES.filter((s) => me.bag[s]).map((s) => `<span class="ar">${SPECIES[s].ar}</span> ${num(me.bag[s])}`).join(' · ');
+  const bagList = GAME_SPECIES.filter((s) => me.bag[s]).map((s) => `<b class="spn">${spName(SPECIES[s])}</b> ${num(me.bag[s])}`).join(' · ');
 
   // advice from the misses
   const misses = atBirds.filter((e) => e.result !== 'kill');
@@ -1252,16 +1252,16 @@ function summaryHtml(me, log, hunt, challengesDone = []) {
       const hh = Math.floor(e.hour);
       const mm = String(Math.floor((e.hour - hh) * 60)).padStart(2, '0');
       const res = t({ kill: 'resDown', wound: 'resHit', miss: 'resMiss' }[e.result]);
-      const bird = sp ? (isAr() ? `<span class="ar">${sp.ar}</span>` : `<span class="ar">${sp.ar}</span> ${sp.en}`) : '—';
+      const bird = sp ? spName(sp) : '—';
       return `<tr><td>${num(hh)}:${num(mm)}</td><td>${bird}</td><td>${e.dist ? num(e.dist.toFixed(0)) + (isAr() ? ' م' : ' m') : ''}</td><td>${e.choke}</td><td class="res-${e.result}">${res}</td><td>${e.result === 'kill' ? t('pellets', { n: num(e.hits) }) : e.how || ''}</td></tr>`;
     })
     .join('');
   const m = isAr() ? ' م' : ' m';
   return `<div class="stats">${stat(bagged, t('stBag'))}${stat(me.score, t('stScore'))}${stat(log.length, t('stShots'))}${stat(pct + '%', t('stRate'))}${stat(longest ? longest.toFixed(0) + m : '—', t('stLongest'))}${stat(avg ? avg.toFixed(0) + m : '—', t('stAvg'))}</div>
     ${bagList ? `<p>${bagList}</p>` : ''}
-    ${challengesDone.length ? `<div class="advice">${t('challengesDone')}: ${challengesDone.map((id) => { const c = CHALLENGES.find((x) => x.id === id); return isAr() ? `<b>${c.ar}</b>` : `<b>${c.en}</b> <span class="ar">${c.ar}</span>`; }).join(' · ')}</div>` : ''}
+    ${challengesDone.length ? `<div class="advice">${t('challengesDone')}: ${challengesDone.map((id) => { const c = CHALLENGES.find((x) => x.id === id); return `<b>${isAr() ? c.ar : c.en}</b>`; }).join(' · ')}</div>` : ''}
     <div class="advice">${tips.join('<br>')}</div>
     ${rows ? `<table class="shotlog"><tr><th>${t('thTime')}</th><th>${t('thBird')}</th><th>${t('thRange')}</th><th>${t('thBarrel')}</th><th>${t('thResult')}</th><th>${t('thHow')}</th></tr>${rows}</table>` : ''}
-    <p class="dim">${isAr() ? `${hunt.ar} · ${hunt.monthAr}` : `${hunt.en} · ${hunt.month}`}</p>`;
+    <p class="dim">${huntName(hunt)} · ${isAr() ? hunt.monthAr : hunt.month}</p>`;
 }
 

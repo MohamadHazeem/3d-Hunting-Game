@@ -2,18 +2,18 @@
 // shot log, so they work the same in multiplayer.
 
 export const CHALLENGES = [
-  { id: 'rightLeft', en: 'A right and left', ar: 'دبلة', desc: 'Two birds down with the two barrels of one loading.' , descAr: 'طيرين بالسبطانتين من نفس التعبئة.' },
-  { id: 'quailFive', en: 'Five quail, no misses', ar: 'خمس فري', desc: 'Five quail in a row without missing a shot.' , descAr: 'خمس فرّي ورا بعض بلا ولا خطأ.' },
-  { id: 'thrush40', en: 'A thrush at 40 m', ar: 'سمنة بعيدة', desc: 'Take a song thrush at 40 m or more.' , descAr: 'سمنة على ٤٠ متر أو أبعد.' },
-  { id: 'woodcockDusk', en: 'Woodcock at dusk', ar: 'شكب المغرب', desc: 'Take a woodcock after half past four in the afternoon.' , descAr: 'شكب بعد الأربعة ونص العصر.' },
-  { id: 'firstLight', en: 'First light', ar: 'عالضو', desc: 'A bird down before a quarter past seven.' , descAr: 'طير قبل السبعة والربع الصبح.' },
-  { id: 'fieldfarePair', en: 'Two kikhen from a flock', ar: 'جوز كيخن', desc: 'Two fieldfare within five seconds.' , descAr: 'كيخنتين خلال خمس ثواني.' },
-  { id: 'incoming', en: 'Straight at you', ar: 'جاي عليك', desc: 'Take a bird flying straight towards you.' , descAr: 'طير جايي دغري عليك.' },
-  { id: 'crosser', en: 'The long crosser', ar: 'معترض', desc: 'Take a fast crossing bird at 35 m or more.' , descAr: 'طير معترض سريع على ٣٥ متر أو أبعد.' },
-  { id: 'woodcockFirst', en: 'The prize bird', ar: 'أول شكب', desc: 'Your first woodcock.' , descAr: 'أول شكب إلك.' },
-  { id: 'chaffinchTen', en: 'Ten salanj', ar: 'عشرة صلنج', desc: 'Ten chaffinch in the bag in one hunt.' , descAr: 'عشرة صلنج بالجعبة بصيدة وحدة.' },
-  { id: 'fullBag', en: 'A full game bag', ar: 'جعبة مليانة', desc: 'Fifteen birds in the bag in one hunt.' , descAr: 'خمستعشر طير بالجعبة بصيدة وحدة.' },
-  { id: 'cleanShot', en: 'Clean shooting', ar: 'قوّاص نضيف', desc: 'End a hunt with six birds or more and at least one bird for every two shots.' , descAr: 'خلّص صيدة بستّ طيور أو أكتر، وطير لكل رميتين عالأقل.' },
+  { id: 'rightLeft', en: 'A right and left', ar: 'طائران بطلقتين', desc: 'Two birds down with the two barrels of one loading.' , descAr: 'طائران بسبطانتي التعبئة نفسها.' },
+  { id: 'quailFive', en: 'Five quail, no misses', ar: 'خمسة سمّان بلا خطأ', desc: 'Five quail in a row without missing a shot.' , descAr: 'خمسة طيور سمّان متتالية من دون أي طلقة ضائعة.' },
+  { id: 'thrush40', en: 'A thrush at 40 m', ar: 'سمنة على بعد ٤٠ مترًا', desc: 'Take a song thrush at 40 m or more.' , descAr: 'اصطد سمنة مغرّدة من مسافة ٤٠ مترًا أو أكثر.' },
+  { id: 'woodcockDusk', en: 'Woodcock at dusk', ar: 'دجاجة الأرض عند الغروب', desc: 'Take a woodcock after half past four in the afternoon.' , descAr: 'اصطد دجاجة الأرض بعد الرابعة والنصف عصرًا.' },
+  { id: 'firstLight', en: 'First light', ar: 'أول الضوء', desc: 'A bird down before a quarter past seven.' , descAr: 'اصطد طائرًا قبل السابعة والربع صباحًا.' },
+  { id: 'fieldfarePair', en: 'Two fieldfare from one flock', ar: 'زوج من سمنة الحقول', desc: 'Two fieldfare within five seconds.' , descAr: 'طائران من سمنة الحقول خلال خمس ثوانٍ.' },
+  { id: 'incoming', en: 'Straight at you', ar: 'قادم نحوك', desc: 'Take a bird flying straight towards you.' , descAr: 'اصطد طائرًا يطير مباشرة نحوك.' },
+  { id: 'crosser', en: 'The long crosser', ar: 'العابر البعيد', desc: 'Take a fast crossing bird at 35 m or more.' , descAr: 'اصطد طائرًا سريعًا عابرًا من مسافة ٣٥ مترًا أو أكثر.' },
+  { id: 'woodcockFirst', en: 'The prize bird', ar: 'الطائر الثمين', desc: 'Your first woodcock.' , descAr: 'أول دجاجة أرض تصطادها.' },
+  { id: 'chaffinchTen', en: 'Ten chaffinch', ar: 'عشرة شراشير', desc: 'Ten chaffinch in the bag in one hunt.' , descAr: 'عشرة طيور شرشور في الجعبة في رحلة صيد واحدة.' },
+  { id: 'fullBag', en: 'A full game bag', ar: 'جعبة ممتلئة', desc: 'Fifteen birds in the bag in one hunt.' , descAr: 'خمسة عشر طائرًا في الجعبة في رحلة صيد واحدة.' },
+  { id: 'cleanShot', en: 'Clean shooting', ar: 'رماية نظيفة', desc: 'End a hunt with six birds or more and at least one bird for every two shots.' , descAr: 'أنهِ رحلة صيد بستة طيور أو أكثر، وبطائر على الأقل لكل طلقتين.' },
 ];
 
 const KEY = 'lbh.challenges';
@@ -100,7 +100,7 @@ export function challengeListHtml() {
     const d = done[c.id];
     const isDaily = c.id === daily.id;
     const ar = document.documentElement.lang === 'ar';
-    const title = ar ? `<b>${c.ar}</b>` : `<b>${c.en}</b> <span class="ar">${c.ar}</span>`;
+    const title = `<b>${ar ? c.ar : c.en}</b>`;
     return `<div class="ch${d ? ' done' : ''}${isDaily ? ' daily' : ''}"><span class="tick">${d ? '✓' : ''}</span><div>${title}${isDaily ? ` <em>${ar ? 'اليوم +٥٠' : 'today +50'}</em>` : ''}<div class="dim">${ar ? c.descAr : c.desc}</div></div></div>`;
   }).join('');
 }

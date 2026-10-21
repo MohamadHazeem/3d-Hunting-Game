@@ -3,9 +3,9 @@ import { SPECIES, SPECIES_LIST } from '../config/species.js';
 import { HUNTS } from '../config/hunts.js';
 import { createBirdMesh, poseWings } from '../birds/birdModel.js';
 import { audio } from '../audio/audio.js';
-import { t, num, isAr } from '../core/i18n.js';
+import { t, num, isAr, spName, huntName } from '../core/i18n.js';
 
-// دليل الطيور: every bird in the game with a portrait rendered from its
+// The bird guide: every bird in the game with a portrait rendered from its
 // in-game model, how it flies, where and when you meet it, and its call.
 
 const FLIGHT = {
@@ -16,11 +16,11 @@ const FLIGHT = {
   soar: 'Soars on broad wings in wide circles, hardly flapping. Travels in huge flocks on migration.',
 };
 const FLIGHT_AR = {
-  whirr: 'بيطلع من الأرض بضجّة جوانح سريعة كتير، بيطير واطي ودغري، وبعدين بيرجع بينزل عالغطا.',
-  zigzag: 'بيطلع متأخر ومن قريب، بيلفّ وبيتعرّج بين الجذوع قبل ما يطير دغري.',
-  direct: 'طيران قوي ودغري بضربات جوانح منتظمة. بيمرق على خطوط الطيران عالضو.',
-  bounding: 'طيران متل الموج: كم ضربة جوانح وبعدين بيسكّر جوانحه، بيعلى وبينزل.',
-  soar: 'بيحوّم على جوانح عريضة بدواير واسعة، بالكاد بيضرب جوانحه. بيهاجر بسروب ضخمة.',
+  whirr: 'ينطلق من الأرض بخفقات أجنحة سريعة جدًا مدوّية، ويطير منخفضًا ومستقيمًا، ثم ينزلق هابطًا إلى الغطاء النباتي.',
+  zigzag: 'ينطلق متأخرًا ومن مسافة قريبة، ويتلوّى ويراوغ بين الجذوع قبل أن يستقيم طيرانه.',
+  direct: 'طيران قوي ومستقيم بخفقات منتظمة وانزلاقات قصيرة، ويعبر خطوط الطيران مع أول الضوء.',
+  bounding: 'طيران متموّج: بضع خفقات سريعة ثم يضمّ جناحيه، فيرتفع وينخفض كالموج.',
+  soar: 'يحلّق على أجنحة عريضة في دوائر واسعة بالكاد يخفقها، ويهاجر في أسراب ضخمة.',
 };
 const CALL_NAME = { quail: 'quail', tsip: 'tsip', chack: 'chack', pink: 'pink', woodcock: 'woodcock' };
 
@@ -78,11 +78,11 @@ export function openGuide(el) {
   const cards = SPECIES_LIST.map((id) => {
     const sp = SPECIES[id];
     const ar = isAr();
-    const where = HUNTS.filter((h) => h.species[id]).map((h) => (ar ? `${h.ar} (${h.monthAr})` : `${h.en} (${h.month})`)).join(' · ');
+    const where = HUNTS.filter((h) => h.species[id]).map((h) => `${huntName(h)} (${ar ? h.monthAr : h.month})`).join(' · ');
     const call = sp.call !== 'none' ? `<button class="listen" data-call="${CALL_NAME[sp.call] || sp.call}">${t('gListen')}</button>` : '';
     return `<div class="g-card${sp.protected ? ' prot' : ''}">
       ${portraits[id] ? `<img src="${portraits[id]}" alt="${sp.en}">` : ''}
-      <div class="g-name"><span class="g-ar">${sp.ar}</span> <b>${ar ? '' : sp.en.replace(' (protected)', '')}</b> <i>${sp.latin}</i></div>
+      <div class="g-name"><span class="g-ar">${spName(sp)}</span> <i>${sp.latin}</i></div>
       ${sp.protected ? `<div class="g-law">${t('gProtected')}</div>` : `<div class="g-law ok">${t('gGame', { p: num(sp.points) })}</div>`}
       <div class="g-row"><span>${t('gSize')}</span>${t('gSizeVal', { l: num(Math.round(sp.length * 100)), w: num(Math.round(sp.wingspan * 100)) })}</div>
       <div class="g-row"><span>${t('gFlight')}</span>${(ar ? FLIGHT_AR : FLIGHT)[sp.flight.style] || ''}</div>

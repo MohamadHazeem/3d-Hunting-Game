@@ -1,5 +1,5 @@
 import { SPECIES, GAME_SPECIES } from '../config/species.js';
-import { t, num, isAr } from '../core/i18n.js';
+import { t, num, isAr, spName, huntName } from '../core/i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -59,7 +59,7 @@ export class HUD {
 
   setBag(bag, score) {
     const rows = GAME_SPECIES.filter((s) => bag[s] || 0)
-      .map((s) => `<div class="row-b"><span><span class="ar">${SPECIES[s].ar}</span> ${isAr() ? '' : SPECIES[s].en}</span><b>${num(bag[s])}</b></div>`)
+      .map((s) => `<div class="row-b"><span>${spName(SPECIES[s])}</span><b>${num(bag[s])}</b></div>`)
       .join('');
     $('bag').innerHTML = `<div class="title">${t('gameBag')}</div>${rows || `<div class="dim" style="color:#b9ae98">${t('empty')}</div>`}`;
     $('score').innerHTML = `${t('score')} <b style="color:#e2a23b">${num(score)}</b>`;
@@ -68,7 +68,7 @@ export class HUD {
   setClock(hour, hunt) {
     const h = Math.floor(hour);
     const m = Math.floor((hour - h) * 60);
-    $('clock').innerHTML = `<b>${num(String(h).padStart(2, '0'))}:${num(String(m).padStart(2, '0'))}</b> · ${isAr() ? hunt.monthAr : hunt.month}<br><span class="ar">${hunt.ar}</span>`;
+    $('clock').innerHTML = `<b>${num(String(h).padStart(2, '0'))}:${num(String(m).padStart(2, '0'))}</b> · ${isAr() ? hunt.monthAr : hunt.month}<br>${huntName(hunt)}`;
   }
 
   // Wind: an arrow showing where it blows relative to where you face.
@@ -162,7 +162,7 @@ export class HUD {
     const el = $('scoreboard');
     el.classList.toggle('hidden', !show);
     if (!show) return;
-    const head = GAME_SPECIES.map((s) => `<th title="${SPECIES[s].en}"><span class="ar" style="margin:0">${SPECIES[s].ar}</span></th>`).join('');
+    const head = GAME_SPECIES.map((s) => `<th title="${spName(SPECIES[s])}">${isAr() ? SPECIES[s].ar : SPECIES[s].short}</th>`).join('');
     const body = rows
       .map(
         (r) =>
@@ -170,12 +170,12 @@ export class HUD {
       )
       .join('');
     const species = Object.keys(hunt.species)
-      .map((s) => (isAr() ? `<span class="ar" style="margin:0">${SPECIES[s].ar}</span> — ${SPECIES[s].noteAr}` : `<span class="ar" style="margin:0">${SPECIES[s].ar}</span> ${SPECIES[s].en} — ${SPECIES[s].note}`))
+      .map((s) => `<b>${spName(SPECIES[s])}</b> — ${isAr() ? SPECIES[s].noteAr : SPECIES[s].note}`)
       .join('<br>');
     const log = shots
       .slice()
       .reverse()
-      .map((e) => `<div>${e.spId ? `<span class="ar" style="margin:0">${SPECIES[e.spId].ar}</span> ${num(e.dist.toFixed(0))} ${isAr() ? 'م' : 'm'} — ` : ''}${e.result === 'kill' ? t('sbDown', { n: num(e.hits) }) : e.how || t('sbNoBird')}</div>`)
+      .map((e) => `<div>${e.spId ? `<b>${spName(SPECIES[e.spId])}</b> ${num(e.dist.toFixed(0))} ${isAr() ? 'م' : 'm'} — ` : ''}${e.result === 'kill' ? t('sbDown', { n: num(e.hits) }) : e.how || t('sbNoBird')}</div>`)
       .join('');
     el.innerHTML = `<table><tr><th>${t('sbHunter')}</th>${head}<th>${t('sbHits')}</th><th>${t('sbScore')}</th></tr>${body}</table>${log ? `<div class="note"><b>${t('sbLast')}</b>${log}</div>` : ''}<div class="note">${species}</div>`;
   }

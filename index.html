@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>صيد لبنان · Lebanon Hunt 3D</title>
+    <title>Lebanon Hunt 3D</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/ui/style.css" />
@@ -16,32 +16,32 @@
       <div class="menu-inner">
         <div class="lang-switch"><button data-lang="en">English</button><button data-lang="ar">العربية</button></div>
         <header class="brand">
-          <div class="brand-ar">صيد لبنان</div>
-          <div class="brand-en">LEBANON HUNT <span>3D</span></div>
+          <div class="brand-ar" data-i18n="title">Lebanon Hunt</div>
+          <div class="brand-en" data-i18n="brandEn">BIRD HUNTING <span>3D</span></div>
           <div class="brand-sub" data-i18n="brandSub">Quail · Thrush · Woodcock · Chaffinch · Fieldfare · Turtle dove · Woodpigeon — on the terraces, fields and woods of Lebanon</div>
         </header>
 
         <section>
-          <h3 data-i18n="choose">Choose your hunting ground <span class="ar">اختار مكان الصيد</span></h3>
+          <h3 data-i18n="choose">Choose your hunting ground</h3>
           <div id="hunts" class="hunts"></div>
         </section>
 
         <section class="row">
           <div class="panel">
-            <h3 data-i18n="hunter">Hunter <span class="ar">الصياد</span></h3>
+            <h3 data-i18n="hunter">Hunter</h3>
             <label><span data-i18n="name">Name</span> <input id="name" maxlength="16" placeholder="Abu Ali" data-i18n-ph="namePh" /></label>
-            <label class="check"><span data-i18n="dog">Bring my pointer <span class="ar">خود الكلب</span></span> <input data-setting="dog" type="checkbox" /></label>
-            <button id="btnSettings" data-i18n="settings">Settings <span class="ar">الإعدادات</span></button>
-            <button id="btnGuide" data-i18n="guide">Bird guide <span class="ar">دليل الطيور</span></button>
+            <label class="check"><span data-i18n="dog">Bring my pointer</span> <input data-setting="dog" type="checkbox" /></label>
+            <button id="btnSettings" data-i18n="settings">Settings</button>
+            <button id="btnGuide" data-i18n="guide">Bird guide</button>
             <p class="tip" data-i18n="menuTip">Graphics, mouse, sound and aiming help are in Settings. They are saved for next time.</p>
           </div>
           <div class="panel">
-            <h3 data-i18n="play">Play <span class="ar">العب</span></h3>
-            <button id="btnSolo" class="primary" data-i18n="solo">Hunt solo <span class="ar">لوحدك</span></button>
-            <button id="btnHost" data-i18n="host">Host a hunt with friends <span class="ar">ادعِ رفقاتك</span></button>
+            <h3 data-i18n="play">Play</h3>
+            <button id="btnSolo" class="primary" data-i18n="solo">Hunt solo</button>
+            <button id="btnHost" data-i18n="host">Host a hunt with friends</button>
             <div class="join">
               <input id="joinCode" maxlength="5" placeholder="CODE" data-i18n-ph="codePh" />
-              <button id="btnJoin" data-i18n="join">Join <span class="ar">انضم</span></button>
+              <button id="btnJoin" data-i18n="join">Join</button>
             </div>
             <div id="netStatus" class="status"></div>
           </div>
@@ -57,7 +57,7 @@
           </div>
         </section>
         <section class="panel challenges-panel">
-          <h3 data-i18n="challenges">Challenges <span class="ar">تحديات</span></h3>
+          <h3 data-i18n="challenges">Challenges</h3>
           <div id="challenges" class="challenges"></div>
         </section>
       </div>
@@ -66,7 +66,7 @@
     <!-- Loading -->
     <div id="loading" class="overlay hidden">
       <div class="loading-box">
-        <div class="brand-ar small">صيد لبنان</div>
+        <div class="brand-ar small" data-i18n="titleSmall">Lebanon Hunt</div>
         <div id="loadText" data-i18n="preparing">Preparing the hunting ground…</div>
         <div class="bar"><div id="loadBar"></div></div>
       </div>
@@ -98,7 +98,7 @@
       <div id="chat"><div id="chatLog"></div><input id="chatInput" class="hidden" maxlength="120" placeholder="Say something…" data-i18n-ph="chatPh" /></div>
       <div id="pause" class="hidden">
         <div class="pause-box">
-          <div class="brand-ar small">صيد لبنان</div>
+          <div class="brand-ar small" data-i18n="titleSmall">Lebanon Hunt</div>
           <p data-i18n="pauseContinue">Click to continue hunting</p>
           <p class="dim" id="pauseInfo"></p>
           <div class="pause-btns">
@@ -115,7 +115,7 @@
     <div id="settings" class="overlay hidden">
       <div class="settings-box">
         <div class="settings-head">
-          <h3 data-i18n="settings">Settings <span class="ar">الإعدادات</span></h3>
+          <h3 data-i18n="settings">Settings</h3>
           <button id="btnSettingsClose" class="close" aria-label="Close settings">✕</button>
         </div>
         <div class="tabs" role="tablist">
@@ -186,7 +186,7 @@
           <label><span data-i18n="volAmbience">Ambience</span> <span><input data-volume="ambience" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
           <label><span data-i18n="volVoice">Voices</span> <span><input data-volume="voice" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
           <label><span data-i18n="volMusic">Music</span> <span><input data-volume="music" type="range" min="0" max="1.5" step="0.01" /><output></output></span></label>
-          <label><span data-i18n="companion">Abu Ali, your hunting companion, calls the birds (Arabic)</span> <input data-setting="companion" type="checkbox" /></label>
+          <label><span data-i18n="companion">Your hunting companion calls out the birds (spoken)</span> <input data-setting="companion" type="checkbox" /></label>
           <p class="dim" data-i18n="soundTip">Headphones are best: you can tell where a calling flock is by ear.</p>
         </div>
         <div class="tab hidden" data-tab="assists">
@@ -204,7 +204,7 @@
     <div id="guide" class="overlay hidden">
       <div class="guide-box">
         <div class="settings-head">
-          <h3 data-i18n="guide">Bird guide <span class="ar">دليل الطيور</span></h3>
+          <h3 data-i18n="guide">Bird guide</h3>
           <button id="btnGuideClose" class="close" aria-label="Close the bird guide">✕</button>
         </div>
         <p class="dim" data-i18n="guideTip">Lebanese hunters' names for each bird. Names vary by village — this is how they are said in most of Lebanon.</p>
@@ -215,8 +215,8 @@
     <!-- End of hunt -->
     <div id="summary" class="overlay hidden">
       <div class="summary-box">
-        <div class="brand-ar small">صيد لبنان</div>
-        <h3 data-i18n="endOfHunt">End of the hunt <span class="ar">آخر النهار</span></h3>
+        <div class="brand-ar small" data-i18n="titleSmall">Lebanon Hunt</div>
+        <h3 data-i18n="endOfHunt">End of the hunt</h3>
         <div id="summaryBody"></div>
         <button id="btnSummaryDone" class="primary" data-i18n="backToMenu">Back to the menu</button>
       </div>

@@ -28,8 +28,9 @@ those cut files in this folder are shared under the same licence.
 
 ## Effects, ambience and voice
 
-Gun, wing, footstep, dog and ambience effects and the voice of Abu Ali were generated with
-[ElevenLabs](https://elevenlabs.io) (sound effects and text-to-speech, eleven_v4 voice "Brian").
+Gun, wing, footstep, dog, rain and ambience effects were generated with
+[ElevenLabs](https://elevenlabs.io) sound effects. The hunting companion speaks with the
+browser's own text-to-speech voice.
 Generated on the free plan, which allows non-commercial use with this credit.
 
 Every sound also has a fallback synthesised in code (`src/audio/audio.js`).

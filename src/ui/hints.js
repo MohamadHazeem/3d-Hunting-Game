@@ -4,14 +4,14 @@ import { isAr } from '../core/i18n.js';
 // and then never again (remembered in localStorage).
 
 const HINTS = {
-  start: { en: 'Walk slowly and watch the sky. Hold the right mouse button to mount the gun, left to fire.', ar: 'امشي عمهلك وراقب السما. اكبس الماوس اليمين لترفع البارودة، والشمال لتقوّص.' },
-  binocs: { en: 'Press B for the binoculars to spot birds far off; Q whistles passing thrush and finch flocks in.', ar: 'اكبس B للمنظار لتشوف الطير البعيد، وQ لتصفّر للسمن والصلنج.' },
-  flock: { en: 'Birds coming! Mount the gun early and swing ahead of them — crossing birds need lead.', ar: 'في طير جايي! ارفع البارودة بكّير ولحّقه — الطير المعترض بدّه تقديم.' },
-  miss: { en: 'The shot takes time to reach the bird: swing through it and keep the gun moving as you fire.', ar: 'الخردق بياخد وقت ليوصل للطير: لحّقه وكفّي حرّك البارودة وإنت عم تقوّص.' },
-  down: { en: 'Bird down! Walk to it and press E — or let your dog bring it to you.', ar: 'وقع الطير! روح لعنده واكبس E — أو خلّي الكلب يجيبلك ياه.' },
-  point: { en: 'Your dog is on point: the bird is just ahead of its nose. Walk in with the gun ready, or press F to send it in.', ar: 'الكلب واقف: الطير قدّام مناخيره. تقدّم والبارودة جاهزة، أو اكبس F ليهجم.' },
-  reload: { en: 'Both barrels are empty — press R (or click) to break the gun and reload.', ar: 'السبطانتين فاضيين — اكبس R لتكسر البارودة وتعبّي.' },
-  wounded: { en: 'A wounded bird can fly on and drop later — watch where it goes and look for feathers.', ar: 'الطير المصاب ممكن يكمّل ويوقع بعدين — شوف وين راح ودوّر عالريش.' },
+  start: { en: 'Walk slowly and watch the sky. Hold the right mouse button to mount the gun, left to fire.', ar: 'امشِ ببطء وراقب السماء. اضغط زر الفأرة الأيمن لرفع البندقية، والأيسر لإطلاق النار.' },
+  binocs: { en: 'Press B for the binoculars to spot birds far off; Q whistles passing thrush and finch flocks in.', ar: 'اضغط B لاستخدام المنظار ورصد الطيور البعيدة، واضغط Q للصفير وجذب أسراب السمنة والشرشور.' },
+  flock: { en: 'Birds coming! Mount the gun early and swing ahead of them — crossing birds need lead.', ar: 'طيور قادمة! ارفع البندقية مبكرًا وصوّب أمامها، فالطائر العابر يحتاج إلى تقديم.' },
+  miss: { en: 'The shot takes time to reach the bird: swing through it and keep the gun moving as you fire.', ar: 'تحتاج الطلقة وقتًا لتصل إلى الطائر: مرّر البندقية عبره وتابع تحريكها أثناء الإطلاق.' },
+  down: { en: 'Bird down! Walk to it and press E — or let your dog bring it to you.', ar: 'سقط الطائر! اذهب إليه واضغط E، أو دع كلبك يحضره إليك.' },
+  point: { en: 'Your dog is on point: the bird is just ahead of its nose. Walk in with the gun ready, or press F to send it in.', ar: 'كلبك يؤشّر: الطائر أمام أنفه تمامًا. تقدّم والبندقية جاهزة، أو اضغط F ليطيّره.' },
+  reload: { en: 'Both barrels are empty — press R (or click) to break the gun and reload.', ar: 'السبطانتان فارغتان. اضغط R (أو انقر) لكسر البندقية وإعادة تعبئتها.' },
+  wounded: { en: 'A wounded bird can fly on and drop later — watch where it goes and look for feathers.', ar: 'قد يواصل الطائر المصاب طيرانه ثم يسقط لاحقًا، فراقب وجهته وابحث عن الريش.' },
 };
 
 export class Hints {
