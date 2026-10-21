@@ -490,6 +490,7 @@ export class BirdManager {
       this.mergeGroups();
     }
 
+    this.decoyPull(dt, players);
     for (const b of [...this.birds.values()]) {
       b.t += dt;
       switch (b.state) {
@@ -1191,6 +1192,53 @@ export class BirdManager {
       if (!near) continue;
       this.groupStats(g);
       if (g.n) this.spook(g, pos, true);
+    }
+  }
+
+  // Decoys set out by a hunter: { pos, spId }. Passing flocks of the same
+  // kind (or close cousins: thrush with thrush, doves with pigeons) may
+  // swing in and pass low over them, or drop into trees close by.
+  setDecoys(list) {
+    this.decoys = list;
+  }
+
+  decoyPull(dt, players) {
+    if (!this.decoys || !this.decoys.length) return;
+    this.decoyT = (this.decoyT || 0) - dt;
+    if (this.decoyT > 0) return;
+    this.decoyT = 1;
+    const FAMILY = { songThrush: 'thrush', fieldfare: 'thrush', turtleDove: 'dove', woodpigeon: 'dove', chaffinch: 'finch' };
+    const kin = (a, b) => a === b || (FAMILY[a] && FAMILY[a] === FAMILY[b]);
+    for (const g of this.groups) {
+      if (g.decoyed) continue;
+      const lead = g.members.find((m) => this.birds.has(m.id) && m.state === 'flying');
+      if (!lead || lead.sp.behaviour !== 'flyover') continue;
+      const d = this.decoys.find((x) => kin(x.spId, lead.spId) && lead.pos.distanceTo(x.pos) < 220);
+      if (!d) continue;
+      g.decoyed = true;
+      // a hunter moving in the open near the decoys gives the game away
+      const busted = players.some((p) => p.speed > 1 && Math.hypot(p.pos.x - d.pos.x, p.pos.z - d.pos.z) < 25);
+      if (busted || !this.rnd.chance(lead.spId === 'woodpigeon' || lead.spId === 'turtleDove' ? 0.6 : 0.45)) continue;
+      const flying = g.members.filter((m) => this.birds.has(m.id) && m.state === 'flying' && (m.mode === 'cruise' || m.mode === 'toPerch'));
+      const trees = this.pickPerchTrees(lead.sp, d.pos.x, d.pos.z, 35, 2);
+      if (trees && this.rnd.chance(0.4)) {
+        for (const m of flying) {
+          m.perchTree = this.rnd.pick(trees);
+          m.mode = 'toPerch';
+          m.waypoints = [this.perchPoint(m.perchTree)];
+        }
+        continue;
+      }
+      this.groupStats(g);
+      const c = g.n ? g.c : lead.pos;
+      const pass = new THREE.Vector3(d.pos.x + this.rnd.float(-6, 6), 0, d.pos.z + this.rnd.float(-6, 6));
+      const away = new THREE.Vector3().subVectors(pass, c).setY(0).normalize().multiplyScalar(400).add(pass);
+      g.path = [pass, away];
+      g.alt = Math.max(lead.sp.flight.alt[0] * 0.7, 5);
+      for (const m of flying) {
+        m.mode = 'cruise';
+        m.alt = g.alt + m.offY;
+      }
     }
   }
 

@@ -27,6 +27,7 @@ import { HuntMap } from './ui/map.js';
 import { openGuide } from './ui/guide.js';
 import { Hints } from './ui/hints.js';
 import { renderBagPhoto } from './ui/bagPhoto.js';
+import { createBirdMesh, poseWings } from './birds/birdModel.js';
 import { Net } from './net/net.js';
 import { Avatar } from './net/avatar.js';
 
@@ -571,6 +572,10 @@ class Game {
       });
       net.on('pickup', (m, from) => this.doPickup(m.bird, from));
       net.on('dogFlush', (m) => this.birds.dogFlush(m.bird, new THREE.Vector3(...m.p)));
+      net.on('decoys', (m, from) => {
+        this.showDecoys(from, m.list);
+        net.broadcast({ ...m, id: from }, from);
+      });
       net.on('whistle', (m, from) => {
         const pos = new THREE.Vector3(...m.p);
         audio.play('whistle', pos, { gain: 0.9, ref: 6, rate: 1.8 });
@@ -610,6 +615,7 @@ class Game {
       });
       net.on('whistle', (m) => audio.play('whistle', new THREE.Vector3(...m.p), { gain: 0.9, ref: 6, rate: 1.8 }));
       net.on('chat', (m) => this.hud.chat(m.from, m.text));
+      net.on('decoys', (m) => this.showDecoys(m.id, m.list));
       net.on('hour', (m) => (this.atmo.hour = m.hour));
       net.on('hostLost', () => {
         this.hud.message(t('hostEnded'), 'warn');
@@ -860,6 +866,58 @@ class Game {
     p.dog.applyRemote(dg);
   }
 
+  // G sets out three decoys in front of you, facing into the wind as real
+  // birds sit; G again near them picks them up.
+  toggleDecoys() {
+    const mine = this.decoySets && this.decoySets.get(this.myId);
+    const me = this.player.pos;
+    if (mine && mine.list.length) {
+      const near = mine.list.some((d) => Math.hypot(d.p[0] - me.x, d.p[2] - me.z) < 22);
+      if (!near) return this.hud.message(t('decoysFar'), 'info');
+      this.setMyDecoys([]);
+      return this.hud.message(t('decoysUp'), 'info');
+    }
+    const sp = ['woodpigeon', 'turtleDove', 'fieldfare', 'songThrush'].find((s) => this.hunt.species[s]);
+    if (!sp) return this.hud.message(t('decoysNone'), 'info');
+    const fx = -Math.sin(this.player.yaw);
+    const fz = -Math.cos(this.player.yaw);
+    const list = [];
+    for (let i = 0; i < 3; i++) {
+      const d = 9 + i * 2.5;
+      const side = (i - 1) * 2.2;
+      const x = me.x + fx * d - fz * side;
+      const z = me.z + fz * d + fx * side;
+      list.push({ p: [+x.toFixed(2), +this.terrain.height(x, z).toFixed(2), +z.toFixed(2)], sp });
+    }
+    this.setMyDecoys(list);
+    this.hud.message(t('decoysOut', { ar: `<span class="ar">${SPECIES[sp].ar}</span>` }), 'info');
+  }
+
+  setMyDecoys(list) {
+    this.showDecoys(this.myId, list);
+    if (this.net) this.net.broadcast({ t: 'decoys', id: this.myId, list });
+  }
+
+  // Draw a hunter's decoys and tell the birds about all of them.
+  showDecoys(id, list) {
+    this.decoySets = this.decoySets || new Map();
+    const old = this.decoySets.get(id);
+    if (old) for (const m of old.meshes) this.scene.remove(m.root);
+    const into = Math.atan2(-this.wind.vec.x, -this.wind.vec.z);
+    const meshes = list.map((d, i) => {
+      const m = createBirdMesh(d.sp);
+      poseWings(m, 'perch', 0, 1, 0);
+      m.root.position.set(d.p[0], d.p[1] + SPECIES[d.sp].length * 0.12, d.p[2]);
+      m.root.rotation.y = into + (i - 1) * 0.3;
+      this.scene.add(m.root);
+      return m;
+    });
+    this.decoySets.set(id, { list, meshes });
+    const all = [];
+    for (const set of this.decoySets.values()) for (const d of set.list) all.push({ pos: new THREE.Vector3(...d.p), spId: d.sp });
+    this.birds.setDecoys(all);
+  }
+
   // The dog has brought a bird back to us.
   deliver(birdId) {
     if (this.authority) this.doPickup(birdId, this.myId);
@@ -970,6 +1028,7 @@ class Game {
       if (input.pressed('KeyQ')) this.whistle();
       if (input.pressed('Enter')) this.openChat();
       if (input.pressed('KeyM')) this.map.show(!this.map.open);
+      if (input.pressed('KeyG')) this.toggleDecoys();
       if (input.pressed('KeyF') && this.dog) {
         const r = this.dog.command();
         this.hud.message(t(r === 'flush' ? 'dogGo' : r === 'heel' ? 'dogHeel' : 'dogHunt'), 'info');
