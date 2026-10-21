@@ -67,6 +67,18 @@ function renderPortraits() {
   return out;
 }
 
+// One bird's portrait (rendered once, then cached), for the harvest card.
+export function portraitOf(id) {
+  if (!portraits) {
+    try {
+      portraits = renderPortraits();
+    } catch {
+      portraits = {};
+    }
+  }
+  return portraits[id] || null;
+}
+
 export function openGuide(el) {
   if (!portraits) {
     try {

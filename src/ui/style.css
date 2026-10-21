@@ -244,3 +244,23 @@ table.shotlog .ar { margin: 0; color: var(--accent); }
 .spn { color: var(--accent); font-weight: 700; }
 .chip { font-weight: 600; }
 .lang-ar .brand-en { letter-spacing: 0; font-family: Cairo, sans-serif; }
+
+/* Harvest card and trophy lodge */
+#harvest { position: absolute; right: 24px; top: 34%; width: 260px; background: rgba(20, 16, 10, 0.88); border: 1px solid rgba(226, 162, 59, 0.5); border-radius: 12px; padding: 12px 14px; opacity: 0; transform: translateX(20px); transition: opacity 0.35s, transform 0.35s; font-size: 13px; }
+#harvest.on { opacity: 1; transform: none; }
+#harvest img { width: 100%; border-radius: 8px; display: block; margin-bottom: 8px; }
+.hv-name { font-size: 18px; font-weight: 800; }
+.hv-medal { font-weight: 700; margin: 2px 0 8px; display: flex; align-items: center; gap: 6px; }
+.medal { display: inline-block; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35) inset; }
+.hv-row { display: flex; justify-content: space-between; padding: 3px 0; border-top: 1px solid var(--line); color: var(--dim); }
+.hv-row b { color: var(--ink); }
+.hv-row b.gold { color: var(--accent); }
+.hv-best { margin-top: 8px; color: #ffe1a6; font-weight: 700; text-align: center; }
+.lang-ar #harvest { right: auto; left: 24px; direction: rtl; }
+.lodge-panel { margin-top: 12px; }
+#lodge .level { font-weight: 700; margin-bottom: 8px; }
+#lodge .dim { color: var(--dim); font-weight: 400; font-size: 12.5px; }
+.xpbar { height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 6px; overflow: hidden; margin-top: 6px; }
+.xpbar i { display: block; height: 100%; background: linear-gradient(90deg, var(--olive), var(--accent)); }
+.trophy { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.trophy span:last-child { margin-inline-start: auto; color: var(--dim); }

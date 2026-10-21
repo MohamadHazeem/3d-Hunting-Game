@@ -78,6 +78,7 @@ const AR = {
   guideTip: 'أسماء الطيور بالعربية الفصحى، مع وصف طيرانها وموسمها في لبنان.',
   endOfHunt: 'نهاية رحلة الصيد',
   backToMenu: 'العودة إلى القائمة',
+  lodgeTitle: 'سجل الجوائز',
   mapKey: '<b>M</b> إغلاق · <span style="color:#e2a23b">●</span> طيورك · <span style="color:#8fc0ff">●</span> أصدقاؤك · <span style="color:#e2a23b">—</span> مسارك · ▪ لوحات التدريب',
 };
 
@@ -219,6 +220,26 @@ const STR = {
   decoysFar: { en: 'Walk back to your decoys to pick them up', ar: 'عُد إلى الطُّعوم لتجمعها' },
   decoysNone: { en: 'No decoys for the birds of this ground', ar: 'لا طُعوم لطيور هذه الأرض' },
   hintTip: { en: 'Tip', ar: 'نصيحة' },
+  hvWeight: { en: 'Weight', ar: 'الوزن' },
+  hvRange: { en: 'Range', ar: 'المسافة' },
+  hvKill: { en: 'Kill', ar: 'الإصابة' },
+  hvClean: { en: 'Clean · {n} pellets', ar: 'نظيفة · {n} حبات' },
+  hvCleanNoCount: { en: 'Clean', ar: 'نظيفة' },
+  hvWounded: { en: 'Wounded first (score ×0.7)', ar: 'أُصيب أولًا (النقاط ×٠٫٧)' },
+  hvScore: { en: 'Score', ar: 'النقاط' },
+  hvRecord: { en: 'New trophy lodge record!', ar: 'رقم قياسي جديد في سجل الجوائز!' },
+  grams: { en: '{g} g', ar: '{g} غ' },
+  medal_none: { en: 'No medal', ar: 'بلا ميدالية' },
+  medal_bronze: { en: 'Bronze', ar: 'برونزية' },
+  medal_silver: { en: 'Silver', ar: 'فضية' },
+  medal_gold: { en: 'Gold', ar: 'ذهبية' },
+  medal_diamond: { en: 'Diamond', ar: 'ماسية' },
+  level: { en: 'Hunter level {n}', ar: 'مستوى الصياد {n}' },
+  xpToNext: { en: '{xp} XP · {next} to the next level', ar: '{xp} نقطة خبرة · {next} للمستوى التالي' },
+  levelUp: { en: 'Level up! Hunter level {n}', ar: 'ارتفع مستواك! مستوى الصياد {n}' },
+  lodgeEmpty: { en: 'No trophies yet — the heaviest bird of each kind you bag will hang here.', ar: 'لا جوائز بعد — سيُعرض هنا أثقل طائر تصطاده من كل نوع.' },
+  stMedals: { en: 'medals', ar: 'ميداليات' },
+  stXp: { en: 'XP earned', ar: 'خبرة مكتسبة' },
 };
 
 export function t(key, vars = {}) {

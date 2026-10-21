@@ -28,6 +28,7 @@ import { HuntMap } from './ui/map.js';
 import { openGuide } from './ui/guide.js';
 import { Hints } from './ui/hints.js';
 import { renderBagPhoto } from './ui/bagPhoto.js';
+import { HarvestCard, birdWeight, medalFor, harvestScore, recordHarvest, lodgeHtml } from './ui/harvest.js';
 import { createBirdMesh, poseWings } from './birds/birdModel.js';
 import { Net } from './net/net.js';
 import { Avatar } from './net/avatar.js';
@@ -97,6 +98,7 @@ $('name').value = settings.name;
 applyI18n();
 renderMenu();
 $('challenges').innerHTML = challengeListHtml();
+$('lodge').innerHTML = lodgeHtml();
 for (const b of document.querySelectorAll('.lang-switch button')) {
   b.classList.toggle('sel', b.dataset.lang === settings.lang);
   b.onclick = () => {
@@ -104,6 +106,7 @@ for (const b of document.querySelectorAll('.lang-switch button')) {
     for (const x of document.querySelectorAll('.lang-switch button')) x.classList.toggle('sel', x === b);
     renderMenu();
     $('challenges').innerHTML = challengeListHtml();
+    $('lodge').innerHTML = lodgeHtml();
   };
 }
 setupSettingsPanel();
@@ -272,6 +275,8 @@ class Game {
     this.ambientShot = 15;
     this.markers = [];
     this.shotLog = [];
+    this.woundedIds = new Set();
+    this.harvests = [];
     this.hints = new Hints($('hint'));
     this.hints.enabled = settings.hints;
     this.companion = new Companion();
@@ -739,7 +744,7 @@ class Game {
 
   // What happened to a shot of yours, once the pellets have passed.
   onShotResult(r) {
-    const entry = { hour: this.atmo.hour, time: this.clock.elapsedTime, loadId: this.gun.loadId || 0, barrel: r.barrel, choke: r.choke || CHOKES[r.barrel].short, spId: r.spId || null, dist: r.dist || 0, hits: r.hits || 0, lat: r.lat || 0, along: r.along || 0, result: 'miss', how: '' };
+    const entry = { target: r.target || null, hour: this.atmo.hour, time: this.clock.elapsedTime, loadId: this.gun.loadId || 0, barrel: r.barrel, choke: r.choke || CHOKES[r.barrel].short, spId: r.spId || null, dist: r.dist || 0, hits: r.hits || 0, lat: r.lat || 0, along: r.along || 0, result: 'miss', how: '' };
     if (r.target) {
       const sp = SPECIES[r.spId];
       entry.result = r.hits >= sp.toughness ? 'kill' : r.hits > 0 ? 'wound' : 'miss';
@@ -802,7 +807,7 @@ class Game {
     this.challenges.onEnd(this.players.get(this.myId), this.shotLog);
     saveBest(this.hunt.id, this.players.get(this.myId));
     const me = this.players.get(this.myId);
-    $('summaryBody').innerHTML = summaryHtml(me, this.shotLog, this.hunt, this.challenges.thisHunt);
+    $('summaryBody').innerHTML = summaryHtml(me, this.shotLog, this.hunt, this.challenges.thisHunt, this.harvests);
     $('summary').classList.remove('hidden');
     renderBagPhoto(me.bag)
       .then((url) => {
@@ -830,6 +835,7 @@ class Game {
         const b = this.birds.birds.get(e.id);
         if (b) this.companion.onFlush(e.spId, b.pos.distanceTo(this.player.pos));
       } else if (e.type === 'wound') {
+        this.woundedIds.add(e.id);
         const m = { t: 'wound', bird: e.id, by: e.by, sp: e.spId };
         this.onWoundEvent(m);
         if (this.net) this.net.broadcast(m);
@@ -947,11 +953,17 @@ class Game {
     const res = this.birds.pickup(birdId);
     if (!res) return;
     const owner = this.players.get(res.owner) || this.players.get(by);
-    if (owner && !SPECIES[res.spId].protected) {
+    // the harvest: weight, trophy medal and score (less for a bird that was wounded first)
+    const protectedBird = SPECIES[res.spId].protected;
+    const w = protectedBird ? 0 : birdWeight(res.spId, birdId, this.hunt.seed);
+    const md = protectedBird ? 'none' : medalFor(res.spId, w);
+    const wd = this.woundedIds.has(birdId);
+    const sc = protectedBird ? 0 : harvestScore(res.spId, md, wd);
+    if (owner && !protectedBird) {
       owner.bag[res.spId] = (owner.bag[res.spId] || 0) + 1;
-      owner.score += SPECIES[res.spId].points;
+      owner.score += sc;
     }
-    const m = { t: 'picked', bird: birdId, by, owner: owner ? owner.id : by, sp: res.spId };
+    const m = { t: 'picked', bird: birdId, by, owner: owner ? owner.id : by, sp: res.spId, w, md, wd, sc };
     this.onPicked(m);
     if (this.net) {
       this.net.broadcast(m);
@@ -967,7 +979,19 @@ class Game {
       this.hud.message(t('intoBag', { name: `<b class="spn">${spName(sp)}</b>`, whose }), 'kill');
       this.challenges.onBag(this.players.get(this.myId).bag);
     }
+    if (m.owner === this.myId && m.w) this.showHarvest(m);
     this.updateHudStats();
+  }
+
+  // The harvest card for a bird of ours, with its record in the lodge.
+  showHarvest(m) {
+    const shot = this.shotLog.slice().reverse().find((e) => e.target === m.bird);
+    const h = { spId: m.sp, weight: m.w, medal: m.md, wounded: m.wd, score: m.sc, dist: shot ? shot.dist : 0, pellets: shot && shot.result === 'kill' ? shot.hits : 0 };
+    Object.assign(h, recordHarvest(h, this.hunt.id));
+    this.harvests.push(h);
+    this.harvest = this.harvest || new HarvestCard();
+    this.harvest.show(h);
+    if (h.medal === 'gold' || h.medal === 'diamond') audio.play('hitConfirm', null, { gain: 0.35, rate: 1.8 });
   }
 
   updateHudStats() {
@@ -1219,7 +1243,7 @@ function describeMiss(r) {
   return { text, side, vert };
 }
 
-function summaryHtml(me, log, hunt, challengesDone = []) {
+function summaryHtml(me, log, hunt, challengesDone = [], harvests = []) {
   const bagged = Object.values(me.bag).reduce((a, b) => a + b, 0);
   const atBirds = log.filter((e) => e.spId);
   const kills = atBirds.filter((e) => e.result === 'kill');
@@ -1257,7 +1281,9 @@ function summaryHtml(me, log, hunt, challengesDone = []) {
     })
     .join('');
   const m = isAr() ? ' م' : ' m';
-  return `<div class="stats">${stat(bagged, t('stBag'))}${stat(me.score, t('stScore'))}${stat(log.length, t('stShots'))}${stat(pct + '%', t('stRate'))}${stat(longest ? longest.toFixed(0) + m : '—', t('stLongest'))}${stat(avg ? avg.toFixed(0) + m : '—', t('stAvg'))}</div>
+  const medals = harvests.filter((h) => h.medal !== 'none').length;
+  const xp = harvests.reduce((a, h) => a + h.score, 0);
+  return `<div class="stats">${stat(bagged, t('stBag'))}${stat(me.score, t('stScore'))}${stat(medals, t('stMedals'))}${stat(xp, t('stXp'))}${stat(log.length, t('stShots'))}${stat(pct + '%', t('stRate'))}${stat(longest ? longest.toFixed(0) + m : '—', t('stLongest'))}${stat(avg ? avg.toFixed(0) + m : '—', t('stAvg'))}</div>
     ${bagList ? `<p>${bagList}</p>` : ''}
     ${challengesDone.length ? `<div class="advice">${t('challengesDone')}: ${challengesDone.map((id) => { const c = CHALLENGES.find((x) => x.id === id); return `<b>${isAr() ? c.ar : c.en}</b>`; }).join(' · ')}</div>` : ''}
     <div class="advice">${tips.join('<br>')}</div>
