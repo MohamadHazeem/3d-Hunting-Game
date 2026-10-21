@@ -31,6 +31,24 @@ const WINTER = { December: 1, January: 1, November: 0.4 };
 
 const _c = new THREE.Color();
 const _v = new THREE.Vector3();
+const OVERCAST_GREY = new THREE.Color(0.58, 0.61, 0.65);
+const FOG_WHITE = new THREE.Color(0.74, 0.76, 0.79);
+const COOL_SUN = new THREE.Color(0.86, 0.9, 1.0);
+const GREY_SKY_LIGHT = new THREE.Color(0.74, 0.77, 0.82);
+const DUST = new THREE.Color(0.8, 0.73, 0.6);
+
+// Overcast and fog grey the sky dome towards the colour of the cloud base or
+// the fog (the Sky shader has no fog of its own, so without this a foggy
+// valley would sit under a clear blue sky).
+function greySky(sky) {
+  const m = sky.material;
+  m.uniforms.uGrey = { value: 0 };
+  m.uniforms.uGreyCol = { value: new THREE.Color() };
+  m.fragmentShader = m.fragmentShader
+    .replace('uniform vec3 up;', 'uniform vec3 up;\nuniform float uGrey;\nuniform vec3 uGreyCol;')
+    .replace('gl_FragColor = vec4( retColor, 1.0 );', 'retColor = mix( retColor, uGreyCol, uGrey );\n\t\t\tgl_FragColor = vec4( retColor, 1.0 );');
+  return m.uniforms;
+}
 
 export class Atmosphere {
   constructor(renderer, scene, hunt, quality) {
@@ -53,6 +71,7 @@ export class Atmosphere {
     u.rayleigh.value = hunt.weather.rayleigh;
     u.mieCoefficient.value = 0.005;
     u.mieDirectionalG.value = 0.8;
+    greySky(sky);
     this.sky = sky;
     scene.add(sky);
 
@@ -64,10 +83,15 @@ export class Atmosphere {
     this.envSky.material.uniforms.rayleigh.value = hunt.weather.rayleigh;
     this.envSky.material.uniforms.mieCoefficient.value = 0.005;
     this.envSky.material.uniforms.mieDirectionalG.value = 0.8;
+    greySky(this.envSky);
     this.envScene.add(this.envSky);
     this.pmrem = new THREE.PMREMGenerator(renderer);
     this.envRT = null;
     this.lastEnvHour = -10;
+    this.lastEnvGrey = 0;
+    this.lastEnvTime = -10;
+    // the day's Weather (cloud, rain, snow, fog, haze 0..1), set by the Game
+    this.weather = null;
 
     // The sun, with a sharp shadow map that follows the hunter.
     this.sun = new THREE.DirectionalLight(0xffffff, 3);
@@ -137,6 +161,11 @@ export class Atmosphere {
         uSunCol: { value: new THREE.Color(1, 1, 1) },
         uShadeCol: { value: new THREE.Color(0.6, 0.65, 0.72) },
         uCam: { value: new THREE.Vector3() },
+        uOpacity: { value: 1 },
+        // under a grey sky the deck fades into the haze with distance, so hills
+        // reaching up into it vanish in cloud instead of standing out pale
+        uFogCol: { value: new THREE.Color() },
+        uFogDen: { value: 0 },
       },
       vertexShader: /* glsl */ `
         varying vec3 vW;
@@ -147,8 +176,8 @@ export class Atmosphere {
         }`,
       fragmentShader: /* glsl */ `
         varying vec3 vW;
-        uniform float uTime, uCover;
-        uniform vec3 uSunDir, uSunCol, uShadeCol, uCam;
+        uniform float uTime, uCover, uOpacity, uFogDen;
+        uniform vec3 uSunDir, uSunCol, uShadeCol, uCam, uFogCol;
         float h(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
         float n(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
           return mix(mix(h(i),h(i+vec2(1,0)),f.x), mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x), f.y); }
@@ -171,9 +200,15 @@ export class Atmosphere {
           vec3 vd = normalize(vW - uCam);
           float toward = pow(max(dot(vd, uSunDir), 0.0), 12.0);
           col += uSunCol * toward * (1.0 - core) * 0.8;
+          float fd = length(vW - uCam) * uFogDen;
+          col = mix(col, uFogCol, 1.0 - exp(-fd * fd));
           float dist = length(vW.xz - uCam.xz);
           float fade = 1.0 - smoothstep(8000.0, 26000.0, dist);
-          gl_FragColor = vec4(col, c * fade * 0.94);
+          gl_FragColor = vec4(col, c * fade * 0.94 * uOpacity);
+          // like every other material when drawing straight to the screen (the
+          // low tier has no post-processing); a no-op into the composer's target
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
         }`,
     });
     const m = new THREE.Mesh(geo, mat);
@@ -224,39 +259,69 @@ export class Atmosphere {
     this.envSky.material.uniforms.sunPosition.value.copy(this.sunDir);
     this.sky.position.copy(camera.position);
 
-    // light colour & strength
+    // The weather: overcast hides the sun and flattens the light, fog greys
+    // everything out, rain darkens the cloud base.
+    const W = this.weather || { cloud: this.hunt.weather.clouds, rain: 0, snow: 0, fog: 0, haze: 0.25, precip: 0, lowFog: 0 };
+    const over = smoothstep(0.35, 0.95, W.cloud); // how much of the sun the cloud hides
+    // ground fog lies in a shallow layer: most of it goes into the valley mist
+    // below, and the sky above stays clear
+    const airFog = W.fog * (1 - 0.75 * W.lowFog);
+    const grey = clamp(Math.max(over * 0.9, airFog * 0.95) + W.precip * 0.08, 0, 1);
+
+    // light colour & strength (no golden hour under a grey sky)
     const e = clamp(elev / 50, -0.2, 1);
-    const warm = 1 - smoothstep(2, 22, elev);
+    const warm = (1 - smoothstep(2, 22, elev)) * (1 - 0.8 * grey);
     const night = 1 - smoothstep(-4, 3, elev);
-    const sunCol = new THREE.Color(1, 0.97, 0.92).lerp(new THREE.Color(1.0, 0.58, 0.32), warm);
+    const sunCol = new THREE.Color(1, 0.97, 0.92).lerp(new THREE.Color(1.0, 0.58, 0.32), warm).lerp(COOL_SUN, 0.5 * grey);
     this.sun.color.copy(sunCol);
-    this.sun.intensity = 3.4 * smoothstep(-2, 8, elev) * (0.65 + 0.35 * e);
-    this.hemi.intensity = 0.25 + 0.55 * smoothstep(-6, 20, elev);
-    this.hemi.color.setRGB(0.62, 0.74, 0.95).lerp(_c.setRGB(0.9, 0.7, 0.6), warm * 0.5);
+    this.sun.intensity = 3.4 * smoothstep(-2, 8, elev) * (0.65 + 0.35 * e) * (1 - 0.85 * over) * (1 - 0.55 * airFog);
+    // under cloud the sky dome is the light: softer, greyer, a little stronger
+    this.hemi.intensity = (0.25 + 0.55 * smoothstep(-6, 20, elev)) * (1 + 0.3 * grey);
+    this.hemi.color.setRGB(0.62, 0.74, 0.95).lerp(_c.setRGB(0.9, 0.7, 0.6), warm * 0.5).lerp(GREY_SKY_LIGHT, grey);
+    // soft, faint shadows under a thin deck; none worth the name under a thick one
+    const shade = clamp(1 - 0.8 * over - 0.5 * airFog, 0.1, 1);
+    this.sun.shadow.intensity = shade;
+    if (this.farSun) this.farSun.shadow.intensity = shade;
 
     this.updateShadows(camera, playerPos);
     const structures = this.scene.userData.structures;
     if (structures) structures.update(elev);
 
-    // fog colour ~ horizon colour
+    // fog colour ~ horizon colour; grey under cloud, white-grey in fog, darker in rain
     const day = new THREE.Color(0.66, 0.74, 0.82);
     const dawn = new THREE.Color(0.86, 0.68, 0.56);
     const dusk = new THREE.Color(0.12, 0.13, 0.18);
-    const fogC = day.clone().lerp(dawn, warm * 0.75).lerp(dusk, night);
+    const greyC = OVERCAST_GREY.clone().lerp(FOG_WHITE, airFog / (airFog + over + 1e-3)).multiplyScalar(1 - 0.22 * W.rain);
+    // a hot, dusty day turns the haze the colour of the dust
+    const dusty = 0.55 * smoothstep(0.5, 1, W.haze) * (1 - grey);
+    const fogC = day.clone().lerp(DUST, dusty).lerp(dawn, warm * 0.75).lerp(greyC, grey).lerp(dusk, night);
     this.scene.fog.color.copy(fogC);
-    // eyes adapt: open up a little in the low light of dawn and dusk
-    this.renderer.toneMappingExposure = 0.6 + 0.1 * smoothstep(0, 30, elev) + 0.12 * (1 - smoothstep(2, 14, elev)) * (1 - night);
+    // haze (a quarter is the ground's usual), thicker under cloud and in falling
+    // rain or snow, and fog closing in to a couple of hundred metres
+    this.scene.fog.density = this.hunt.weather.haze * (0.6 + 1.6 * W.haze) * (1 + 0.8 * over) + 0.0006 * W.rain + 0.0024 * W.snow + 0.0058 * Math.pow(airFog, 1.4);
+    // eyes adapt: open up a little in the low light of dawn and dusk, and on a dull day
+    this.renderer.toneMappingExposure = 0.6 + 0.1 * smoothstep(0, 30, elev) + 0.12 * (1 - smoothstep(2, 14, elev)) * (1 - night) + 0.1 * grey * (1 - night);
+
+    // the sky dome follows: whiter with haze, greyed by cloud and fog
+    const turb = this.hunt.weather.turbidity + 3 * grey + 4 * Math.max(0, W.haze - 0.25);
+    for (const s of [this.sky, this.envSky]) {
+      const su = s.material.uniforms;
+      su.turbidity.value = turb;
+      su.uGrey.value = grey * 0.92;
+      su.uGreyCol.value.copy(fogC).multiplyScalar(1.05);
+    }
 
     // sun glow in the haze, valley mist
     const daylight = smoothstep(-3, 6, elev);
     sunDirection.x = this.sunDir.x;
     sunDirection.y = this.sunDir.y;
     sunDirection.z = this.sunDir.z;
-    const sc = 0.36 * daylight * (0.6 + 0.8 * warm);
+    const sc = 0.36 * daylight * (0.6 + 0.8 * warm) * (1 - 0.7 * grey);
     sunScatter.x = sunCol.r * sc;
     sunScatter.y = sunCol.g * sc;
     sunScatter.z = sunCol.b * sc;
-    const amt = this.T.mist ? this.mistAmount(this.hour) : 0;
+    // the weather's fog fills the valleys too
+    const amt = this.T.mist ? Math.max(this.mistAmount(this.hour), W.fog * (1.1 + 0.9 * W.lowFog)) : 0;
     mistParams.x = 0.0032 * amt;
     mistParams.y = this.mistBase();
     mistParams.z = this.mist.falloff;
@@ -269,19 +334,29 @@ export class Atmosphere {
     mistColor.z = mc.b;
     mistTime.x = this.time;
 
-    this.updateGrade(elev, warm, night, amt);
+    this.updateGrade(elev, warm, night, amt, grey, W);
 
-    // clouds
+    // clouds: more of them, lower, flatter-lit and darker as the deck thickens;
+    // lost in the grey when the fog is down
     const cu = this.clouds.material.uniforms;
     cu.uTime.value += dt;
+    cu.uCover.value = this.weather ? 0.08 + 0.92 * W.cloud : this.hunt.weather.clouds;
     cu.uSunDir.value.copy(this.sunDir);
-    cu.uSunCol.value.copy(sunCol).multiplyScalar(0.6 + 0.6 * smoothstep(-3, 15, elev));
-    cu.uShadeCol.value.copy(fogC).multiplyScalar(0.85);
+    cu.uSunCol.value.copy(sunCol).multiplyScalar((0.6 + 0.6 * smoothstep(-3, 15, elev)) * (1 - 0.45 * over));
+    cu.uShadeCol.value.copy(fogC).multiplyScalar(0.85 * (1 - 0.18 * over - 0.25 * W.precip));
     cu.uCam.value.copy(camera.position);
-    this.clouds.position.set(camera.position.x, this.hunt.terrain.baseHeight + 2600, camera.position.z);
+    cu.uOpacity.value = 1 - 0.85 * airFog;
+    cu.uFogCol.value.copy(fogC);
+    cu.uFogDen.value = this.scene.fog.density * grey;
+    this.clouds.position.set(camera.position.x, this.hunt.terrain.baseHeight + 2600 - 1200 * over - 300 * W.precip, camera.position.z);
 
-    if (Math.abs(this.hour - this.lastEnvHour) > 0.08) {
+    // image lighting: as the sun moves, and when the sky has greyed or
+    // cleared noticeably (at most every 6 s: a refresh costs a few ms)
+    const greyChanged = Math.abs(grey - this.lastEnvGrey) > 0.08 && this.time - this.lastEnvTime > 6;
+    if (Math.abs(this.hour - this.lastEnvHour) > 0.08 || greyChanged) {
       this.lastEnvHour = this.hour;
+      this.lastEnvGrey = grey;
+      this.lastEnvTime = this.time;
       if (this.envRT) this.envRT.dispose();
       this.envRT = this.pmrem.fromScene(this.envScene, 0, 0.1, 2000);
       this.scene.environment = this.envRT.texture;
@@ -336,21 +411,23 @@ export class Atmosphere {
   }
 
   // Colour grade: warm and contrasty at golden hour with cool shadows, a
-  // little hazy and desaturated at midday, cooler in winter, blue at night.
-  updateGrade(elev, warm, night, mist) {
-    const noon = smoothstep(25, 45, elev);
+  // little hazy and desaturated at midday, cooler in winter, blue at night;
+  // flat, cool and muted on a grey day, more so in the rain.
+  updateGrade(elev, warm, night, mist, grey = 0, W = null) {
+    const noon = smoothstep(25, 45, elev) * (1 - grey);
     const w = this.winter;
+    const rain = W ? W.precip : 0;
     const wb = look.whiteBalance;
     wb.set(1, 1, 1);
-    wb.x *= 1 + 0.07 * warm - 0.03 * w - 0.12 * night;
+    wb.x *= 1 + 0.07 * warm - 0.03 * w - 0.12 * night - 0.03 * grey;
     wb.y *= 1 - 0.01 * warm - 0.06 * night;
-    wb.z *= 1 - 0.1 * warm + 0.04 * w + 0.1 * night + 0.02 * noon;
-    look.saturation = 1.04 + 0.06 * warm - 0.08 * noon - 0.2 * night - 0.05 * mist;
-    look.contrast = 1.05 + 0.06 * warm - 0.04 * noon - 0.06 * mist;
-    look.shadowTint.set(1 - 0.06 * warm - 0.02 * w, 1 - 0.02 * warm, 1 + 0.07 * warm + 0.03 * w);
+    wb.z *= 1 - 0.1 * warm + 0.04 * w + 0.1 * night + 0.02 * noon + 0.035 * grey;
+    look.saturation = 1.04 + 0.06 * warm - 0.08 * noon - 0.2 * night - 0.05 * mist - 0.14 * grey - 0.06 * rain;
+    look.contrast = 1.05 + 0.06 * warm - 0.04 * noon - 0.06 * mist - 0.08 * grey;
+    look.shadowTint.set(1 - 0.06 * warm - 0.02 * w, 1 - 0.02 * warm, 1 + 0.07 * warm + 0.03 * w + 0.02 * grey);
     look.highlightTint.set(1 + 0.04 * warm, 1 + 0.005 * warm, 1 - 0.05 * warm);
-    look.vignette = 0.16 + 0.06 * night;
-    look.bloom = 0.12 + 0.12 * warm;
+    look.vignette = 0.16 + 0.06 * night + 0.03 * grey;
+    look.bloom = (0.12 + 0.12 * warm) * (1 - 0.4 * grey);
   }
 
   get light() {
