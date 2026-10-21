@@ -229,7 +229,7 @@ export class BirdManager {
     return m.forest >= 0.4 || this.veg.treesNear(x, z, 7).length > 0;
   }
 
-  spawnGround(spId, players, minDist = 40, maxDist = 130, center = null) {
+  spawnGround(spId, players, minDist = 40, maxDist = 130, center = null, zone = null) {
     const spot = this.groundSpot(spId, players, minDist, maxDist, center);
     if (!spot) return null;
     // quail often sit in loose little groups after a night of migration
@@ -243,6 +243,7 @@ export class BirdManager {
       b.pos.set(x, this.ground(x, z) + 0.08, z);
       b.flushDist = this.rnd.float(...b.sp.flushDist);
       b.model.root.visible = false;
+      b.zone = zone;
       first = first || b;
     }
     return first;
@@ -257,26 +258,35 @@ export class BirdManager {
     };
   }
 
+  // opts: lateral, startD, alt, perchChance; a need zone's flock also gives
+  // route {start, pass, end} (Vector2), perchTrees or groundPerch {x, z, r},
+  // zone (id) and stay ([min, max] seconds feeding or roosting).
   spawnFlock(spId, players, opts = {}) {
-    if (!players.length) return;
+    if (!players.length) return null;
     const sp = SPECIES[spId];
     const p = this.rnd.pick(players).pos;
-    // most passage flocks follow the day's migration heading; the rest are
-    // local birds moving about
-    let a = this.rnd.float(0, Math.PI * 2);
-    if (sp.behaviour !== 'soar' && this.rnd.chance(0.65)) {
-      const h = this.passageHeading + this.rnd.gauss() * 0.45;
-      a = Math.atan2(Math.cos(h), -Math.sin(h)); // start up-track of the heading
+    let start, pass, end, dir;
+    if (opts.route) {
+      ({ start, pass, end } = opts.route);
+      dir = start.clone().sub(pass).normalize();
+    } else {
+      // most passage flocks follow the day's migration heading; the rest are
+      // local birds moving about
+      let a = this.rnd.float(0, Math.PI * 2);
+      if (sp.behaviour !== 'soar' && this.rnd.chance(0.65)) {
+        const h = this.passageHeading + this.rnd.gauss() * 0.45;
+        a = Math.atan2(Math.cos(h), -Math.sin(h)); // start up-track of the heading
+      }
+      dir = new THREE.Vector2(Math.cos(a), Math.sin(a));
+      const side = new THREE.Vector2(-dir.y, dir.x);
+      // most flight lines pass within ~25 m of a hunter, a good few right overhead
+      const lateral = opts.lateral ?? (sp.behaviour === 'soar' ? this.rnd.float(-150, 150) : this.rnd.gauss() * 18);
+      const startD = opts.startD ?? (sp.behaviour === 'soar' ? 900 : 330);
+      start = new THREE.Vector2(p.x, p.z).addScaledVector(dir, startD).addScaledVector(side, lateral + this.rnd.float(-30, 30));
+      pass = new THREE.Vector2(p.x, p.z).addScaledVector(side, lateral);
+      end = new THREE.Vector2(p.x, p.z).addScaledVector(dir, -startD - 100).addScaledVector(side, lateral + this.rnd.float(-60, 60));
     }
-    const dir = new THREE.Vector2(Math.cos(a), Math.sin(a));
-    const side = new THREE.Vector2(-dir.y, dir.x);
-    // most flight lines pass within ~25 m of a hunter, a good few right overhead
-    const lateral = opts.lateral ?? (sp.behaviour === 'soar' ? this.rnd.float(-150, 150) : this.rnd.gauss() * 18);
-    const startD = opts.startD ?? (sp.behaviour === 'soar' ? 900 : 330);
-    const start = new THREE.Vector2(p.x, p.z).addScaledVector(dir, startD).addScaledVector(side, lateral + this.rnd.float(-30, 30));
-    const pass = new THREE.Vector2(p.x, p.z).addScaledVector(side, lateral);
-    const end = new THREE.Vector2(p.x, p.z).addScaledVector(dir, -startD - 100).addScaledVector(side, lateral + this.rnd.float(-60, 60));
-    let count = this.rnd.int(...(sp.flock || [1, 1]));
+    let count = opts.count ?? this.rnd.int(...(sp.flock || [1, 1]));
     let alt = opts.alt ?? this.passAlt(sp);
     // Snow buries the food on the tops and pushes fieldfare down in big,
     // hungry flocks that skim low over the junipers looking for berries.
@@ -288,8 +298,16 @@ export class BirdManager {
     const group = this.makeGroup(spId, alt);
     group.path = [new THREE.Vector3(pass.x, 0, pass.y), new THREE.Vector3(end.x, 0, end.y)];
     group.dir.set(-dir.x, -dir.y);
-    // some flocks will drop into trees along the line
-    if (sp.behaviour === 'flyover' && this.rnd.chance(opts.perchChance ?? 0.5)) {
+    group.zone = opts.zone || null;
+    group.stay = opts.stay || null;
+    if (opts.perchTrees) {
+      // a party coming in to its feeding or roosting trees
+      group.perch = [];
+      for (let i = 0; i < Math.ceil(count / 2); i++) group.perch.push(this.rnd.pick(opts.perchTrees));
+    } else if (opts.groundPerch) {
+      group.groundPerch = opts.groundPerch;
+    } else if (sp.behaviour === 'flyover' && this.rnd.chance(opts.perchChance ?? 0.5)) {
+      // some flocks will drop into trees along the line
       group.perch = this.pickPerchTrees(sp, pass.x, pass.y, 90, Math.ceil(count / 3));
     }
     const spread = (sp.flocking || DEFAULT_FLOCK).spread * 0.6;
@@ -308,11 +326,16 @@ export class BirdManager {
       b.heading.set(-dir.x, -dir.y);
       b.vel.set(-dir.x * sp.flight.speed, 0, -dir.y * sp.flight.speed);
       b.mode = 'cruise';
+      b.zone = group.zone;
       if (group.perch && group.perch.length) {
         const tr = group.perch[i % group.perch.length];
         b.perchTree = tr;
         b.mode = 'toPerch';
         b.waypoints = [this.perchPoint(tr)];
+      } else if (group.groundPerch) {
+        b.perchTree = null;
+        b.mode = 'toPerch';
+        b.waypoints = [this.groundPoint(sp, group.groundPerch)];
       }
       if (sp.behaviour === 'soar') {
         b.mode = 'soar';
@@ -325,6 +348,140 @@ export class BirdManager {
       group.members.push(b);
     }
     this.groups.push(group);
+    return group;
+  }
+
+  // A spot on open ground (a drinking trough's edge, a stubble field) for a
+  // dove to land and walk about on.
+  groundPoint(sp, gp) {
+    const a = this.rnd.float(0, Math.PI * 2);
+    const r = this.rnd.float(gp.r0 || 0, gp.r);
+    const x = gp.x + Math.cos(a) * r;
+    const z = gp.z + Math.sin(a) * r;
+    return new THREE.Vector3(x, this.ground(x, z) + sp.length * 0.13 * this.sizeMul, z);
+  }
+
+  // ---------------- need zones (host) ----------------
+
+  // A party of birds flies in to a need zone from a few hundred metres off:
+  // into its trees to feed or roost, down to the water or the stubble, or,
+  // on a flight line, low over it on the way to roost.
+  spawnZoneFlock(z, players) {
+    const sp = SPECIES[z.sp];
+    const c = new THREE.Vector2(z.x, z.z);
+    const a = z.kind === 'line' && z.dir != null ? z.dir + Math.PI + this.rnd.float(-0.35, 0.35) : this.rnd.float(0, Math.PI * 2);
+    const away = new THREE.Vector2(Math.cos(a), Math.sin(a));
+    const side = new THREE.Vector2(-away.y, away.x).multiplyScalar(z.kind === 'line' ? this.rnd.float(-20, 20) : 0);
+    const start = c.clone().addScaledVector(away, z.kind === 'line' ? 340 : 290).add(side);
+    const pass = c.clone().add(side);
+    const end = c.clone().addScaledVector(away, -420).add(side);
+    const opts = { route: { start, pass, end }, zone: z.id, alt: this.passAlt(sp) };
+    if (z.kind === 'line') opts.alt = sp.flight.alt[0] * this.rnd.float(0.8, 1.1);
+    else if (z.kind === 'drink') opts.groundPerch = { x: z.x, z: z.z, r: 4.5, r0: 1.8 };
+    else if (z.kind === 'groundFeed') opts.groundPerch = { x: z.x, z: z.z, r: z.r * 0.6 };
+    else {
+      const trees = z.trees && z.trees.length ? z.trees : this.veg.treesNear(z.x, z.z, z.r);
+      if (!trees.length) return null;
+      opts.perchTrees = trees;
+    }
+    if (z.kind === 'roost') opts.stay = [900, 1500]; // there for the night
+    else if (z.kind === 'drink') opts.stay = [20, 45];
+    else if (z.kind !== 'line') opts.stay = [45, 110];
+    // a smaller party to drink; roosts fill with bigger ones
+    const [lo, hi] = sp.flock || [1, 1];
+    if (z.kind === 'drink') opts.count = this.rnd.int(Math.min(2, hi), Math.max(2, Math.ceil(hi / 2)));
+    if (z.kind === 'roost') opts.count = this.rnd.int(Math.max(lo, 3), hi + 2);
+    return this.spawnFlock(z.sp, players, opts);
+  }
+
+  // How many of a zone's birds are there (or on their way in).
+  zoneCount(id) {
+    let n = 0;
+    for (const b of this.birds.values()) {
+      if (b.zone !== id) continue;
+      if (b.state === 'perched' || b.state === 'hidden' || b.state === 'running' || (b.state === 'flying' && b.mode === 'toPerch')) n++;
+    }
+    return n;
+  }
+
+  // A zone's time is over: its birds become ordinary birds again.
+  releaseZone(id) {
+    for (const b of this.birds.values()) if (b.zone === id) b.zone = null;
+  }
+
+  // ---------------- callers (host) ----------------
+
+  // The hunter's quail call: hidden quail within earshot call back, and some
+  // creep in through the stubble towards it. Returns who answered, so every
+  // hunter can hear them and the caller can be shown roughly where.
+  callQuail(pos) {
+    if (!this.authority) return [];
+    const out = [];
+    const near = [];
+    for (const b of this.birds.values()) {
+      if (b.spId !== 'quail' || (b.state !== 'hidden' && b.state !== 'running')) continue;
+      const d = Math.hypot(b.pos.x - pos.x, b.pos.z - pos.z);
+      if (d < 110) near.push([d, b]);
+    }
+    // the closer ones are likelier to answer; a handful at most
+    near.sort((x, y) => x[0] - y[0]);
+    for (const [d, b] of near) {
+      if (out.length >= 6 || !this.rnd.chance(0.9 - d / 200)) continue;
+      out.push({ id: b.id, p: [+b.pos.x.toFixed(1), +b.pos.y.toFixed(1), +b.pos.z.toFixed(1)], delay: +this.rnd.float(0.6, 2.4).toFixed(2) });
+      if (b.state === 'hidden' && d > 25 && this.rnd.chance(0.35)) {
+        // runs *towards* the call: away from a point just beyond itself
+        this.startRun(b, new THREE.Vector3(b.pos.x * 2 - pos.x, 0, b.pos.z * 2 - pos.z));
+        b.runLeft = Math.min(12, d * 0.3);
+        b.runRolled = true;
+      }
+    }
+    return out;
+  }
+
+  // The dove/pigeon cooer: passing doves and woodpigeons in earshot swing in
+  // to the trees near the caller (or pass low to look), and doves already
+  // sitting nearby coo back.
+  callDoves(pos) {
+    if (!this.authority) return { n: 0, answers: [] };
+    let n = 0;
+    for (const g of this.groups) {
+      if (this.time - g.called < 8) continue;
+      const lead = g.members.find((m) => this.birds.has(m.id) && m.state === 'flying');
+      if (!lead || (lead.spId !== 'turtleDove' && lead.spId !== 'woodpigeon')) continue;
+      if (lead.pos.distanceTo(pos) > 280) continue;
+      g.called = this.time;
+      if (!this.rnd.chance(0.75)) continue;
+      n++;
+      const flying = g.members.filter((m) => this.birds.has(m.id) && m.state === 'flying' && (m.mode === 'cruise' || m.mode === 'toPerch'));
+      const trees = this.veg.treesNear(pos.x, pos.z, 70).filter((t) => (lead.sp.perchPrefer || []).includes(t.type) && Math.hypot(t.x - pos.x, t.z - pos.z) > 18);
+      if (trees.length && this.rnd.chance(0.7)) {
+        g.stay = [40, 100];
+        g.groundPerch = null;
+        for (const m of flying) {
+          m.perchTree = this.rnd.pick(trees);
+          m.mode = 'toPerch';
+          m.waypoints = [this.perchPoint(m.perchTree)];
+        }
+      } else {
+        this.groupStats(g);
+        const c = g.n ? g.c : lead.pos;
+        const a = this.rnd.float(0, Math.PI * 2);
+        const pass = new THREE.Vector3(pos.x + Math.cos(a) * 15, 0, pos.z + Math.sin(a) * 15);
+        g.path = [pass, new THREE.Vector3().subVectors(pass, c).setY(0).normalize().multiplyScalar(400).add(pass)];
+        g.alt = Math.max(lead.sp.flight.alt[0] * 0.8, 6);
+        for (const m of flying) {
+          m.mode = 'cruise';
+          m.alt = g.alt + m.offY;
+        }
+      }
+    }
+    const answers = [];
+    for (const b of this.birds.values()) {
+      if (b.state !== 'perched' || (b.spId !== 'turtleDove' && b.spId !== 'woodpigeon')) continue;
+      if (b.pos.distanceTo(pos) > 150 || !this.rnd.chance(0.6) || answers.length >= 4) continue;
+      answers.push({ id: b.id, p: [+b.pos.x.toFixed(1), +b.pos.y.toFixed(1), +b.pos.z.toFixed(1)], delay: +this.rnd.float(0.8, 2.6).toFixed(2), call: b.sp.call });
+    }
+    return { n, answers };
   }
 
   // Height of a passing flock over the ground: low lines are the rule (most
@@ -775,6 +932,7 @@ export class BirdManager {
     const sp = b.sp;
     b.state = 'flying';
     b.t = 0;
+    b.zone = null;
     b.mode = 'flush';
     b.model.root.visible = true;
     // away from the hunter, with a random slant
@@ -1145,7 +1303,7 @@ export class BirdManager {
     b.hop = null;
     b.pendingTakeoff = -1;
     const g = b.group;
-    if (g && !g.perchUntil) g.perchUntil = this.time + this.rnd.float(25, 90);
+    if (g && !g.perchUntil) g.perchUntil = this.time + this.rnd.float(...(g.stay || [25, 90]));
     audio.play('land', b.pos, { gain: 0.3, ref: 3 });
   }
 
@@ -1249,6 +1407,7 @@ export class BirdManager {
     const sp = b.sp;
     b.state = 'flying';
     b.t = 0;
+    b.zone = null; // gone from its feeding or roosting place
     b.pendingTakeoff = -1;
     b.hop = null;
     const g = b.group;

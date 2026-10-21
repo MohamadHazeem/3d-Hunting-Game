@@ -25,6 +25,7 @@ import { ChallengeTracker, challengeListHtml, CHALLENGES } from './core/challeng
 import { t, num, isAr, applyI18n, setLang } from './core/i18n.js';
 import { HUD, esc } from './ui/hud.js';
 import { HuntMap } from './ui/map.js';
+import { Gameplay } from './ui/gameplay.js';
 import { openGuide } from './ui/guide.js';
 import { Hints } from './ui/hints.js';
 import { renderBagPhoto } from './ui/bagPhoto.js';
@@ -389,6 +390,8 @@ class Game {
     this.progress(0.93, t('load6'));
     await nextFrame();
     this.map = new HuntMap($('map'), terrain, structures);
+    // spotting, flock arrows, meters, need zones, callers, objective line
+    this.play = new Gameplay(this);
     this.progress(0.95, t('load7'));
     await nextFrame();
     // warm up shaders so the first frames don't stutter
@@ -1037,7 +1040,7 @@ class Game {
       if (input.pressed('KeyR')) this.gun.reload();
       if (input.pressed('KeyE')) this.tryPickup();
       if (input.pressed('KeyB')) this.player.binocs = !this.player.binocs;
-      if (input.pressed('KeyQ')) this.whistle();
+      if (input.pressed('KeyQ')) this.play.blow(); // the caller in hand (thrush whistle = this.whistle())
       if (input.pressed('Enter')) this.openChat();
       if (input.pressed('KeyM')) this.map.show(!this.map.open);
       if (input.pressed('KeyG')) this.toggleDecoys();
@@ -1104,6 +1107,7 @@ class Game {
 
     audio.setListener(this.camera);
     this.updateHud();
+    this.play.update(dt, sim);
     this.updateFps();
     this.gfx.render(this);
     input.endFrame();
@@ -1172,6 +1176,7 @@ class Game {
       const d = Math.hypot(p.x - me.x, p.z - me.z);
       markers.push({ yaw: Math.atan2(p.x - me.x, -(p.z - me.z)), label: `dog ${d.toFixed(0)}m`, color: '#ffffff' });
     }
+    this.play.compassMarkers(markers);
     hud.drawCompass(this.player.yaw, markers);
     if (this.map.open) {
       this.map.draw({ me, yaw: this.player.yaw, players: [...this.players.values()], birds: this.birds.birds.values(), myId: this.myId, boards: this.boards.boards });

@@ -1,8 +1,9 @@
 import { PLAY_RADIUS } from '../world/terrain.js';
+import { zoneTitle, zoneHours } from './gameplayText.js';
 
 // The hunting-ground map (M): shaded relief with woods, fields, terraces,
-// snow, the track and the house, plus your route, your friends and every
-// bird that's down.
+// snow, the track and the house, plus your route, your friends, every bird
+// that's down and the need zones you have found (set `zones` and `hour`).
 
 const RES = 360;
 const SPAN = PLAY_RADIUS * 2 + 60; // metres across
@@ -95,6 +96,41 @@ export class HuntMap {
     this.open = on;
   }
 
+  // Need zones you've found: a ring with an icon for what the birds do there,
+  // the species and the hours; bright while the zone is on.
+  drawZones(g, W) {
+    const hour = this.hour ?? 12;
+    g.textAlign = 'center';
+    for (const z of this.zones.list) {
+      if (!z.found) continue;
+      const [px, pz] = this.toPx(z.x, z.z);
+      const R = Math.max(16, (z.r / SPAN) * W);
+      const on = this.zones.active(z, hour);
+      g.fillStyle = on ? 'rgba(155,226,122,0.28)' : 'rgba(243,234,216,0.12)';
+      g.strokeStyle = on ? '#9be27a' : 'rgba(243,234,216,0.6)';
+      g.lineWidth = 2;
+      g.setLineDash([6, 4]);
+      g.beginPath();
+      g.arc(px, pz, R, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.setLineDash([]);
+      zoneIcon(g, z, px, pz, on ? '#9be27a' : '#f3ead8');
+      g.font = '700 15px Inter, Cairo, sans-serif';
+      g.lineWidth = 4;
+      g.strokeStyle = 'rgba(20,14,8,0.85)';
+      const t1 = zoneTitle(z);
+      const t2 = zoneHours(z);
+      g.strokeText(t1, px, pz + R + 18);
+      g.fillStyle = '#f3ead8';
+      g.fillText(t1, px, pz + R + 18);
+      g.font = '600 13px Inter, Cairo, sans-serif';
+      g.strokeText(t2, px, pz + R + 35);
+      g.fillStyle = on ? '#9be27a' : '#b9ae98';
+      g.fillText(t2, px, pz + R + 35);
+    }
+  }
+
   draw({ me, yaw, players, birds, myId, boards }) {
     if (!this.open) return;
     const g = this.ctx;
@@ -129,6 +165,7 @@ export class HuntMap {
       const [px, pz] = this.toPx(b.center.x, b.center.z);
       g.fillRect(px - 3, pz - 3, 6, 6);
     }
+    if (this.zones) this.drawZones(g, W);
     // downed birds
     for (const b of birds) {
       if (b.state !== 'dead' && b.state !== 'falling') continue;
@@ -182,4 +219,54 @@ export class HuntMap {
     g.textAlign = 'left';
     g.fillText('100 m', 24, W - 38);
   }
+}
+
+// A small icon for a zone: a leaf (feeding), a moon (roosting), a drop
+// (drinking), an arrow (flight line) or grass (cover).
+function zoneIcon(g, z, x, y, col) {
+  g.save();
+  g.translate(x, y);
+  g.fillStyle = 'rgba(20,14,8,0.8)';
+  g.beginPath();
+  g.arc(0, 0, 13, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = col;
+  g.strokeStyle = col;
+  g.lineWidth = 2.2;
+  g.lineCap = 'round';
+  g.beginPath();
+  if (z.kind === 'roost') {
+    g.arc(0, 0, 7, 0.6, Math.PI * 2 - 0.6);
+    g.arc(4, 0, 5.5, Math.PI * 2 - 1.2, 1.2, true);
+    g.fill();
+  } else if (z.kind === 'drink') {
+    g.moveTo(0, -8);
+    g.quadraticCurveTo(7, 1, 0, 7);
+    g.quadraticCurveTo(-7, 1, 0, -8);
+    g.fill();
+  } else if (z.kind === 'line') {
+    g.rotate(z.dir ?? 0);
+    g.moveTo(-8, 0);
+    g.lineTo(7, 0);
+    g.moveTo(2, -5);
+    g.lineTo(7, 0);
+    g.lineTo(2, 5);
+    g.stroke();
+  } else if (z.kind === 'ground') {
+    for (const dx of [-5, 0, 5]) {
+      g.moveTo(dx, 7);
+      g.quadraticCurveTo(dx + 1, 0, dx + (dx || 2), -7);
+    }
+    g.stroke();
+  } else {
+    g.ellipse(0, 0, 4.5, 8, 0.6, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = 'rgba(20,14,8,0.8)';
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.moveTo(-4, 5);
+    g.lineTo(4, -5);
+    g.stroke();
+  }
+  g.restore();
 }
