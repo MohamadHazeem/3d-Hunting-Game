@@ -48,6 +48,11 @@ export class Avatar {
     torso.position.y = 1.22;
     torso.scale.z = 0.75;
     g.add(torso);
+    // a hunter-orange vest so friends can see each other through the scrub
+    const vest = new THREE.Mesh(new THREE.CapsuleGeometry(0.215, 0.3, 4, 10, 1), orange);
+    vest.position.y = 1.27;
+    vest.scale.z = 0.78;
+    g.add(vest);
     // cartridge belt
     const belt = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.03, 6, 20), new THREE.MeshStandardMaterial({ color: 0x6a4a2a }));
     belt.rotation.x = Math.PI / 2;
@@ -117,7 +122,7 @@ export class Avatar {
     this.root.rotation.y = a.yaw + dy * k;
     this.aim.rotation.x = a.pitch + (b.pitch - a.pitch) * k;
     this.head.rotation.x = this.aim.rotation.x * 0.6;
-    const crouch = b.crouch ? 0.55 : 0;
+    const crouch = (b.c ?? b.crouch) ? 0.55 : 0;
     this.root.scale.y = 1 - crouch * 0.4;
     const speed = this.lastPos.distanceTo(this.root.position) / Math.max(dt, 1e-3);
     this.lastPos.copy(this.root.position);
