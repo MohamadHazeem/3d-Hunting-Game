@@ -11,7 +11,7 @@ import { loadModelTex } from '/src/world/models.js';
 
 const q = new URLSearchParams(location.search);
 const species = (q.get('species') || 'olive,oak,pine,juniper,cedar,fir,shrub').split(',');
-const rows = [q.get('row') || 'near'];
+const rows = [['near', 'mid', 'far'].includes(q.get('row')) ? q.get('row') : 'near'];
 const hour = parseFloat(q.get('hour') || '9.5');
 const dist = parseFloat(q.get('dist') || '34');
 
