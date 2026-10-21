@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { Random } from '../core/rng.js';
+import { Precipitation } from './precip.js';
 
 // Small visual life around the hunter: dust (or snow) kicked up by boots on
-// dry ground, and leaves drifting down from the oaks and olives.
+// dry ground, leaves drifting down from the oaks and olives, and the rain or
+// snow falling around him.
 
 const LEAF_TREES = { oak: 1, olive: 0.35, cedar: 0.15, juniper: 0.1, pine: 0.15 };
 
@@ -42,6 +44,7 @@ export class SceneLife {
     this.nearTrees = [];
     this.leafWeight = 0;
     if (T.leaves) this.buildLeaves(game.scene);
+    this.precip = new Precipitation(game, T);
   }
 
   buildLeaves(scene) {
@@ -74,7 +77,9 @@ export class SceneLife {
     const m = this.terrain.maskAt(pos.x, pos.z);
     const snow = m.snow > 0.5;
     const dry = this.hunt.ground.dryness;
-    const dusty = snow || (m.forest < 0.5 && dry > 0.3);
+    // wet earth doesn't raise dust
+    const wet = game.weather ? game.weather.wetness : 0;
+    const dusty = snow || (m.forest < 0.5 && dry > 0.3 && wet < 0.3);
     // landing from a jump
     if (p.grounded && !this.wasGrounded) this.puff(game, pos, snow, 5, 1.3);
     this.wasGrounded = p.grounded;
@@ -175,7 +180,10 @@ export class SceneLife {
 
   update(game, dt) {
     if (dt <= 0 || !game.player) return;
-    if (game.input && !game.input.locked && !game.net && !game.chatOpen) return; // paused
+    const paused = game.input && !game.input.locked && !game.net && !game.chatOpen;
+    // the weather is drawn even while paused (it just stops falling)
+    this.precip.update(game, paused ? 0 : dt);
+    if (paused) return;
     this.footDust(game, dt);
     this.updateLeaves(game, dt);
   }
