@@ -57,7 +57,11 @@ function greySky(sky) {
     .replace(
       'gl_FragColor = vec4( retColor, 1.0 );',
       // a deeper, cleaner blue overhead on a clear day
-      'retColor *= mix( vec3( 1.0 ), vec3( 0.86, 0.93, 1.04 ), smoothstep( 0.05, 0.85, direction.y ) * ( 1.0 - uGrey ) );\n\t\t\tretColor = mix( retColor, uGreyCol, uGrey );\n\t\t\tgl_FragColor = vec4( retColor, 1.0 );'
+      'retColor *= mix( vec3( 1.0 ), vec3( 0.86, 0.93, 1.04 ), smoothstep( 0.05, 0.85, direction.y ) * ( 1.0 - uGrey ) );\n' +
+        // the sun: a bright core and a soft aureole round it (seen even without bloom), dimmed by cloud
+        '\t\t\tfloat lbhCs = max( dot( direction, vSunDirection ), 0.0 );\n' +
+        '\t\t\tretColor += vec3( 1.0, 0.9, 0.75 ) * ( pow( lbhCs, 9000.0 ) * 2.5 + pow( lbhCs, 900.0 ) * 0.35 + pow( lbhCs, 90.0 ) * 0.05 ) * ( 1.0 - uGrey ) * smoothstep( -0.04, 0.03, vSunDirection.y );\n' +
+        '\t\t\tretColor = mix( retColor, uGreyCol, uGrey );\n\t\t\tgl_FragColor = vec4( retColor, 1.0 );'
     );
   return m.uniforms;
 }
@@ -327,7 +331,10 @@ export class Atmosphere {
     aerial.x = clamp(1 - 1.4 * airFog - 0.6 * W.precip, 0, 1);
     aerial.y = this.mistBase();
     // eyes adapt: open up a little in the low light of dawn and dusk, and on a dull day
-    this.renderer.toneMappingExposure = 0.6 + 0.1 * smoothstep(0, 30, elev) + 0.12 * (1 - smoothstep(2, 14, elev)) * (1 - night) + 0.1 * grey * (1 - night);
+    // the eyes adapt to the dim half hour round sunrise and sunset: the land
+    // stays readable under the glowing sky instead of going black
+    const twilight = (1 - smoothstep(-1, 8, elev)) * smoothstep(-6, -2, elev);
+    this.renderer.toneMappingExposure = 0.6 + 0.1 * smoothstep(0, 30, elev) + 0.12 * (1 - smoothstep(2, 14, elev)) * (1 - night) + 0.1 * grey * (1 - night) + 0.35 * twilight;
 
     // the sky dome follows: whiter with haze, greyed by cloud and fog
     const turb = this.hunt.weather.turbidity * TURBIDITY_MUL + 3 * grey + 4 * Math.max(0, W.haze - 0.25);
@@ -391,7 +398,7 @@ export class Atmosphere {
       this.envGround.material.color.copy(this.groundAlbedo).multiply(gE).multiplyScalar(1.1 / Math.PI / Math.max(0.1, this.scene.environmentIntensity || 0.5));
       this.envRT = this.pmrem.fromScene(this.envScene, 0, 0.1, 2000);
       this.scene.environment = this.envRT.texture;
-      this.scene.environmentIntensity = 0.55 * smoothstep(-6, 15, elev) + 0.08;
+      this.scene.environmentIntensity = 0.5 * smoothstep(-7, 12, elev) + 0.1;
     }
     return elev;
   }

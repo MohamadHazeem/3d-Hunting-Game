@@ -103,7 +103,7 @@ C.fog_fragment = /* glsl */ `
       float fz = fogDensity * vFogDepth;
       float hAvg = max( 0.0, 0.5 * ( cameraPosition.y + vFogWorld.y ) - uAerial.y );
       float thin = mix( 1.0, exp( - hAvg / 1600.0 ), uAerial.x );
-      float odG = ( fz * fz * ( 1.0 - 0.45 * uAerial.x ) + fz * 0.9 * uAerial.x ) * thin;
+      float odG = ( fz * fz * ( 1.0 - 0.45 * uAerial.x ) + fz * 0.55 * uAerial.x ) * thin;
       // the haze itself is the sky's colour (fogColor); what lies behind it
       // loses its blue first
       vec3 fogT = exp( - odG * mix( vec3( 1.0 ), vec3( 0.86, 0.98, 1.16 ), uAerial.x ) );
