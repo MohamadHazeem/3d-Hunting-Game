@@ -254,7 +254,7 @@ export class Gameplay {
     const n = Math.min(40, Math.max(3, Math.ceil(d / 6)));
     for (let i = 1; i < n; i++) {
       const k = i / n;
-      if (t.height(eye.x + (p.x - eye.x) * k, eye.z + (p.z - eye.z) * k) > eye.y + (p.y - eye.y) * k - 0.15) return false;
+      if (t.height(eye.x + (p.x - eye.x) * k, eye.z + (p.z - eye.z) * k) > eye.y + (p.y - eye.y) * k - 0.5) return false;
     }
     const vx = p.x - eye.x;
     const vz = p.z - eye.z;
