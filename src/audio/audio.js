@@ -168,6 +168,43 @@ const SYNTH = {
     ),
 };
 
+// Rain for when the recorded beds haven't loaded: a soft hiss of distant
+// drops with nearer ones ticking on leaves, made as a seamless loop (the tail
+// is crossfaded into the head).
+SYNTH.rain = (ctx) => {
+  const dur = 6;
+  const cf = 0.5;
+  const raw = makeBuffer(
+    ctx,
+    dur + cf,
+    (t, st, c) => {
+      const n = noise();
+      // hiss: band-limited noise, gently swelling
+      const hiss = (lp(st, 'h', n, 0.35) - lp(st, 'l', n, 0.06)) * (0.8 + 0.2 * Math.sin(t * 0.9 + c * 2));
+      // drops: short clicks of filtered noise at random moments
+      if (rnd.next() < 160 / ctx.sampleRate) st.e = 0.4 + rnd.next() * 0.9;
+      st.e = (st.e || 0) * 0.9965;
+      const drop = (n - lp(st, 'd', n, 0.5)) * st.e;
+      return hiss * 0.5 + drop * 0.45;
+    },
+    2
+  );
+  const sr = ctx.sampleRate;
+  const n = Math.floor(dur * sr);
+  const m = Math.floor(cf * sr);
+  const buf = ctx.createBuffer(2, n, sr);
+  for (let c = 0; c < 2; c++) {
+    const src = raw.getChannelData(c);
+    const d = buf.getChannelData(c);
+    d.set(src.subarray(0, n));
+    for (let i = 0; i < m; i++) {
+      const k = i / m;
+      d[i] = src[i] * Math.sqrt(k) + src[n + i] * Math.sqrt(1 - k);
+    }
+  }
+  return buf;
+};
+
 // turtle dove: a deep purring "turrr turrr"
 SYNTH.purr = (ctx) =>
   makeBuffer(ctx, 1.6, (t) => {
@@ -224,8 +261,9 @@ const ALIASES = {
 };
 
 // Looping ambience beds, crossfaded by hour, month, place and weather.
-const BEDS = ['dawn', 'cicadas', 'crickets', 'windTrees', 'windOpen', 'winterWood'];
-const BED_GAIN = { dawn: 0.5, cicadas: 0.32, crickets: 0.3, windTrees: 0.45, windOpen: 0.4, winterWood: 0.45 };
+// rainLight is drizzle pattering on leaves; rainSteady the hiss of real rain.
+const BEDS = ['dawn', 'cicadas', 'crickets', 'windTrees', 'windOpen', 'winterWood', 'rainLight', 'rainSteady'];
+const BED_GAIN = { dawn: 0.5, cicadas: 0.32, crickets: 0.3, windTrees: 0.45, windOpen: 0.4, winterWood: 0.45, rainLight: 0.55, rainSteady: 0.42 };
 
 function localNum(k, d) {
   try {
@@ -250,6 +288,8 @@ export class AudioSystem {
     this.heightFn = null;
     this.reflCache = { key: '', list: [] };
     this.amb = null;
+    this.weather = null; // the day's Weather, set by the Game
+    this.hush = 0; // how much the weather swallows far-off sounds (0..1)
   }
 
   async init() {
@@ -509,6 +549,8 @@ export class AudioSystem {
       f.type = 'lowpass';
       f.frequency.value = Math.max(450, (opts.cutoff || 20000 * Math.exp(-d / (opts.absorb || 260))) * (1 - 0.8 * occ));
       g.gain.value *= 1 - 0.6 * occ;
+      // rain hiss, fog and fresh snow swallow sounds from far off
+      if (this.hush && d > 40) g.gain.value *= 1 - 0.75 * this.hush * ramp(d, 40, 700);
       node.connect(f);
       node = f;
       const pan = ctx.createPanner();
@@ -665,6 +707,8 @@ export class AudioSystem {
   // Other hunters far across the valley.
   distantShot() {
     if (!this.listenerPos) return;
+    // fewer hunters are out in foul weather
+    if (Math.random() < this.hush * 0.6) return;
     const a = Math.random() * Math.PI * 2;
     const d = 450 + Math.random() * 1500;
     const L = this.listenerPos;
@@ -690,6 +734,21 @@ export class AudioSystem {
     this.windGain = ctx.createGain();
     this.windGain.gain.value = 0.14;
     src.connect(f).connect(this.windGain).connect(this.buses.ambience);
+    src.start();
+  }
+
+  startSynthRain() {
+    const ctx = this.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = this.buffers.rain;
+    src.loop = true;
+    // the harder it rains, the brighter the hiss
+    this.rainLP = ctx.createBiquadFilter();
+    this.rainLP.type = 'lowpass';
+    this.rainLP.frequency.value = 2500;
+    this.rainGain = ctx.createGain();
+    this.rainGain.gain.value = 0;
+    src.connect(this.rainLP).connect(this.rainGain).connect(this.buses.ambience);
     src.start();
   }
 
@@ -720,13 +779,24 @@ export class AudioSystem {
     const s = A.scene;
     const autumn = s.month === 'September' || s.month === 'October' || s.month === 'November';
     const winter = s.month === 'December' || s.month === 'January';
+    const W = this.weather;
+    const rain = W ? W.rain : 0;
+    const fog = W ? W.fog : 0;
+    const snow = W ? W.snow : 0;
+    // the rain's hiss masks distant sounds; fog and fresh snow deaden the valley
+    this.hush = clamp01(0.65 * rain + 0.4 * fog + 0.35 * snow);
+    // birds and insects fall quiet in the rain
+    const quiet = 1 - 0.8 * ramp(rain, 0, 0.4);
     const target = {
-      dawn: bell(hour, 7, 1.4) * (winter ? 0.35 : 1),
-      cicadas: (s.month === 'September' ? 1 : s.month === 'October' ? 0.35 : 0) * ramp(hour, 9.5, 12) * (1 - ramp(hour, 16.5, 18.5)),
-      crickets: Math.max(ramp(hour, 17, 18.5), 1 - ramp(hour, 5.2, 6.4)) * (autumn ? 1 : 0.15),
+      dawn: bell(hour, 7, 1.4) * (winter ? 0.35 : 1) * quiet * (1 - 0.35 * fog),
+      cicadas: (s.month === 'September' ? 1 : s.month === 'October' ? 0.35 : 0) * ramp(hour, 9.5, 12) * (1 - ramp(hour, 16.5, 18.5)) * quiet,
+      crickets: Math.max(ramp(hour, 17, 18.5), 1 - ramp(hour, 5.2, 6.4)) * (autumn ? 1 : 0.15) * quiet,
       windTrees: trees * (0.25 + wind * 0.75),
       windOpen: (1 - trees) * wind * (s.kind === 'highland' ? 1 : 0.55),
       winterWood: winter && trees > 0.25 ? 0.8 : 0,
+      // drizzle is heard on the leaves overhead; steady rain everywhere
+      rainLight: ramp(rain, 0.01, 0.2) * (1 - 0.5 * ramp(rain, 0.5, 0.9)) * (0.55 + 0.45 * trees),
+      rainSteady: ramp(rain, 0.2, 0.8),
     };
     const t = this.ctx.currentTime;
     let windCovered = 0;
@@ -738,10 +808,18 @@ export class AudioSystem {
     }
     // the synthesised wind fills in until the recorded wind has loaded
     if (this.windGain) this.windGain.gain.setTargetAtTime(windCovered ? 0.03 : 0.08 + wind * 0.1, t, 1.5);
+    // and the synthesised rain until the recorded rain has
+    if (rain > 0.005 && !this.rainGain) this.startSynthRain();
+    if (this.rainGain) {
+      const recorded = A.beds.rainLight || A.beds.rainSteady;
+      this.rainGain.gain.setTargetAtTime(recorded ? 0 : 0.2 * ramp(rain, 0.01, 0.6), t, 1.5);
+      this.rainLP.frequency.setTargetAtTime(1800 + 6000 * rain, t, 1.5);
+    }
+    const far = 1 - 0.5 * this.hush; // the far-off one-shots below are quieter too
 
     // far-off life around the hunting ground
     const T = A.timers;
-    const far = (min, max) => {
+    const farPos = (min, max) => {
       const a = Math.random() * Math.PI * 2;
       const d = min + Math.random() * (max - min);
       const x = this.listenerPos.x + Math.cos(a) * d;
@@ -751,29 +829,29 @@ export class AudioSystem {
     for (const k of Object.keys(T)) T[k] -= dt;
     if (T.rooster <= 0) {
       T.rooster = 50 + Math.random() * 120;
-      if (hour > 5.3 && hour < 9.5 && s.village) this.play('farRooster', far(450, 1000), { gain: 3, ref: 30, absorb: 500 });
+      if (hour > 5.3 && hour < 9.5 && s.village) this.play('farRooster', farPos(450, 1000), { gain: 3 * far, ref: 30, absorb: 500 });
     }
     if (T.dog <= 0) {
       T.dog = 70 + Math.random() * 160;
-      if (s.village) this.play('farDog', far(350, 1000), { gain: 2.5, ref: 30, absorb: 450 });
+      if (s.village) this.play('farDog', farPos(350, 1000), { gain: 2.5 * far, ref: 30, absorb: 450 });
     }
     if (T.sheep <= 0) {
       T.sheep = 120 + Math.random() * 200;
-      if (hour > 7.5 && hour < 17 && !winter) this.play('farSheep', far(250, 650), { gain: 2.2, ref: 30, absorb: 450 });
+      if (hour > 7.5 && hour < 17 && !winter) this.play('farSheep', farPos(250, 650), { gain: 2.2 * far, ref: 30, absorb: 450 });
     }
     // a song from the trees now and then, most at first light
     if (T.song <= 0) {
-      const rate = 0.08 + bell(hour, 7, 1.6) * 0.5 + bell(hour, 16.5, 1) * 0.2;
+      const rate = (0.08 + bell(hour, 7, 1.6) * 0.5 + bell(hour, 16.5, 1) * 0.2) * quiet * (1 - 0.3 * fog);
       T.song = (2 + Math.random() * 6) / rate;
       if (trees > 0.05 || Math.random() < 0.3) {
         const name = Math.random() < 0.55 ? 'songThrush' : 'songChaffinch';
-        if (this.samples[name]) this.play(name, far(40, 160), { gain: 0.9, ref: 10, absorb: 300 });
+        if (this.samples[name]) this.play(name, farPos(40, 160), { gain: 0.9 * far, ref: 10, absorb: 300 });
       }
     }
     // the village church bell on some hours
     const h = Math.floor(hour);
     if (A.lastHour >= 0 && h !== A.lastHour && s.church && [7, 8, 12, 17].includes(h) && Math.random() < 0.8) {
-      this.play('farBell', far(700, 1200), { gain: 3, ref: 40, absorb: 600 });
+      this.play('farBell', farPos(700, 1200), { gain: 3 * far, ref: 40, absorb: 600 });
     }
     A.lastHour = h;
   }
