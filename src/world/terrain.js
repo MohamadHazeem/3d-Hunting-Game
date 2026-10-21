@@ -68,7 +68,9 @@ export class Terrain {
   // Rounded mountain ranges with soft ridge lines (0..1).
   mountain(x, z, s) {
     const n = this.noise;
-    const a = 1 - Math.abs(n.fbm(x / s, z / s, 4));
+    // a softened |f| rounds the crests: massive limestone ridges, not teeth
+    const f = n.fbm(x / s, z / s, 4);
+    const a = 1 - Math.sqrt(f * f + 0.006);
     const b = n.fbm(x / (s * 0.6) + 9, z / (s * 0.6) - 4, 3) * 0.5 + 0.5;
     return a * a * 0.65 + b * 0.35;
   }

@@ -3,7 +3,7 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { clamp, smoothstep } from '../core/rng.js';
 import { tierSettings } from '../gfx/quality.js';
 import { look } from '../gfx/look.js';
-import { mistParams, mistColor, sunScatter, sunDirection, mistTime } from './shading.js';
+import { mistParams, mistColor, sunScatter, sunDirection, mistTime, aerial } from './shading.js';
 import { CORE_SIZE } from './terrain.js';
 
 // Atmospheric sky, sun, clouds, fog, valley mist and image-based lighting,
@@ -30,12 +30,20 @@ const MIST = {
 const WINTER = { December: 1, January: 1, November: 0.4 };
 
 const _c = new THREE.Color();
+const _c2 = new THREE.Color();
 const _v = new THREE.Vector3();
 const OVERCAST_GREY = new THREE.Color(0.58, 0.61, 0.65);
 const FOG_WHITE = new THREE.Color(0.74, 0.76, 0.79);
 const COOL_SUN = new THREE.Color(0.86, 0.9, 1.0);
 const GREY_SKY_LIGHT = new THREE.Color(0.74, 0.77, 0.82);
 const DUST = new THREE.Color(0.8, 0.73, 0.6);
+// The physical sky model reads a little pale and milky with the grounds'
+// haze numbers; a touch more Rayleigh and less turbidity gives the deeper
+// Mediterranean blue overhead while the horizon keeps its haze.
+const RAYLEIGH_MUL = 1.35;
+const TURBIDITY_MUL = 0.75;
+const MIE = 0.0038;
+const MIE_G = 0.82;
 
 // Overcast and fog grey the sky dome towards the colour of the cloud base or
 // the fog (the Sky shader has no fog of its own, so without this a foggy
@@ -46,7 +54,11 @@ function greySky(sky) {
   m.uniforms.uGreyCol = { value: new THREE.Color() };
   m.fragmentShader = m.fragmentShader
     .replace('uniform vec3 up;', 'uniform vec3 up;\nuniform float uGrey;\nuniform vec3 uGreyCol;')
-    .replace('gl_FragColor = vec4( retColor, 1.0 );', 'retColor = mix( retColor, uGreyCol, uGrey );\n\t\t\tgl_FragColor = vec4( retColor, 1.0 );');
+    .replace(
+      'gl_FragColor = vec4( retColor, 1.0 );',
+      // a deeper, cleaner blue overhead on a clear day
+      'retColor *= mix( vec3( 1.0 ), vec3( 0.86, 0.93, 1.04 ), smoothstep( 0.05, 0.85, direction.y ) * ( 1.0 - uGrey ) );\n\t\t\tretColor = mix( retColor, uGreyCol, uGrey );\n\t\t\tgl_FragColor = vec4( retColor, 1.0 );'
+    );
   return m.uniforms;
 }
 
@@ -67,10 +79,10 @@ export class Atmosphere {
     const sky = new Sky();
     sky.scale.setScalar(20000); // must stay inside the camera far plane
     const u = sky.material.uniforms;
-    u.turbidity.value = hunt.weather.turbidity;
-    u.rayleigh.value = hunt.weather.rayleigh;
-    u.mieCoefficient.value = 0.005;
-    u.mieDirectionalG.value = 0.8;
+    u.turbidity.value = hunt.weather.turbidity * TURBIDITY_MUL;
+    u.rayleigh.value = hunt.weather.rayleigh * RAYLEIGH_MUL;
+    u.mieCoefficient.value = MIE;
+    u.mieDirectionalG.value = MIE_G;
     greySky(sky);
     this.sky = sky;
     scene.add(sky);
@@ -79,12 +91,22 @@ export class Atmosphere {
     this.envScene = new THREE.Scene();
     this.envSky = new Sky();
     this.envSky.scale.setScalar(1000);
-    Object.assign(this.envSky.material.uniforms.turbidity, { value: hunt.weather.turbidity });
-    this.envSky.material.uniforms.rayleigh.value = hunt.weather.rayleigh;
-    this.envSky.material.uniforms.mieCoefficient.value = 0.005;
-    this.envSky.material.uniforms.mieDirectionalG.value = 0.8;
+    Object.assign(this.envSky.material.uniforms.turbidity, { value: hunt.weather.turbidity * TURBIDITY_MUL });
+    this.envSky.material.uniforms.rayleigh.value = hunt.weather.rayleigh * RAYLEIGH_MUL;
+    this.envSky.material.uniforms.mieCoefficient.value = MIE;
+    this.envSky.material.uniforms.mieDirectionalG.value = MIE_G;
     greySky(this.envSky);
     this.envScene.add(this.envSky);
+    // The lower half of the image lighting is the sunlit ground, not more sky:
+    // undersides and shade pick up a warm, earthy bounce instead of blue.
+    this.envGround = new THREE.Mesh(new THREE.CircleGeometry(950, 48), new THREE.MeshBasicMaterial({ color: 0x302a20, side: THREE.DoubleSide, fog: false }));
+    this.envGround.rotation.x = -Math.PI / 2;
+    this.envGround.position.y = -45;
+    this.envScene.add(this.envGround);
+    // ground albedo: what the grass, soil and leaf litter average out to
+    const gg = hunt.ground.grass;
+    const lit = hunt.terrain.kind === 'forest' ? 0.16 : hunt.terrain.kind === 'highland' ? 0.2 : 0.24;
+    this.groundAlbedo = new THREE.Color(gg[0] * lit, gg[1] * lit, gg[2] * lit * 0.9);
     this.pmrem = new THREE.PMREMGenerator(renderer);
     this.envRT = null;
     this.lastEnvHour = -10;
@@ -299,11 +321,16 @@ export class Atmosphere {
     // haze (a quarter is the ground's usual), thicker under cloud and in falling
     // rain or snow, and fog closing in to a couple of hundred metres
     this.scene.fog.density = this.hunt.weather.haze * (0.6 + 1.6 * W.haze) * (1 + 0.8 * over) + 0.0006 * W.rain + 0.0024 * W.snow + 0.0058 * Math.pow(airFog, 1.4);
+    // aerial perspective: in clear air the haze builds steadily with distance
+    // and thins with height, and blue light scatters out first, so ridge after
+    // ridge fades into blue; fog and falling rain keep the plain grey wall
+    aerial.x = clamp(1 - 1.4 * airFog - 0.6 * W.precip, 0, 1);
+    aerial.y = this.mistBase();
     // eyes adapt: open up a little in the low light of dawn and dusk, and on a dull day
     this.renderer.toneMappingExposure = 0.6 + 0.1 * smoothstep(0, 30, elev) + 0.12 * (1 - smoothstep(2, 14, elev)) * (1 - night) + 0.1 * grey * (1 - night);
 
     // the sky dome follows: whiter with haze, greyed by cloud and fog
-    const turb = this.hunt.weather.turbidity + 3 * grey + 4 * Math.max(0, W.haze - 0.25);
+    const turb = this.hunt.weather.turbidity * TURBIDITY_MUL + 3 * grey + 4 * Math.max(0, W.haze - 0.25);
     for (const s of [this.sky, this.envSky]) {
       const su = s.material.uniforms;
       su.turbidity.value = turb;
@@ -358,6 +385,10 @@ export class Atmosphere {
       this.lastEnvGrey = grey;
       this.lastEnvTime = this.time;
       if (this.envRT) this.envRT.dispose();
+      // the ground's own light: sun and sky on its albedo (Lambert), in the
+      // sky shader's units (its radiance runs ~3x three's light units)
+      const gE = _c.copy(sunCol).multiplyScalar(this.sun.intensity * Math.max(0, this.sunDir.y)).add(_c2.copy(this.hemi.color).multiplyScalar(this.hemi.intensity));
+      this.envGround.material.color.copy(this.groundAlbedo).multiply(gE).multiplyScalar(1.1 / Math.PI / Math.max(0.1, this.scene.environmentIntensity || 0.5));
       this.envRT = this.pmrem.fromScene(this.envScene, 0, 0.1, 2000);
       this.scene.environment = this.envRT.texture;
       this.scene.environmentIntensity = 0.55 * smoothstep(-6, 15, elev) + 0.08;
