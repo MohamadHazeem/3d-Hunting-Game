@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Random, hash2, smoothstep } from '../core/rng.js';
-import { CORE_SIZE } from './terrain.js';
+import { CORE_SIZE, FAR_COVER_SIZE } from './terrain.js';
 import { loadTex } from '../core/assets.js';
 import { loadFoliageAtlas, makeFoliageTexture } from './foliageTextures.js';
 import { tierSettings } from '../gfx/quality.js';
@@ -37,6 +37,52 @@ const TINT = { olive: 0xf2f4ea, oak: 0xe4ead8, pine: 0xeaf0dc, juniper: 0xdfe6de
 // level-of-detail distances (m) for each quality tier: near, mid
 const LOD_DIST = { low: [32, 130], medium: [50, 190], high: [70, 260], ultra: [95, 340] };
 const SHRUB_FAR = { low: 70, medium: 110, high: 150, ultra: 190 };
+
+// The woods beyond the hunting ground: light two-card trees on the far
+// ring, wherever the far cover map (terrain.js) says the land is wooded.
+// Which kinds grow there, how tall (m), how wide for their height, and the
+// grid spacing per tier (0: none).
+const FAR_KINDS = {
+  forest: ['oak', 'oak', 'pine'],
+  terraces: ['olive', 'oak', 'olive', 'pine'],
+  highland: ['juniper', 'juniper', 'cedar', 'fir'],
+  plain: ['oak', 'olive'],
+};
+const FAR_SIZE = { olive: [5, 1.2], oak: [6.5, 1.0], pine: [10, 0.9], juniper: [5.5, 0.8], cedar: [12, 1.1], fir: [12, 0.5] };
+const FAR_CELL = { low: 0, medium: 18, high: 14, ultra: 12 };
+
+// two crossed cards, one atlas cluster each, standing on the origin
+function farTreeGeo() {
+  const pos = [];
+  const nor = [];
+  const uv = [];
+  const aux = [];
+  const idx = [];
+  for (let k = 0; k < 2; k++) {
+    const a = (k / 2) * Math.PI + 0.4;
+    const cx = Math.cos(a) * 0.5;
+    const cz = Math.sin(a) * 0.5;
+    const b = pos.length / 3;
+    const u0 = k * 0.5 + 0.004;
+    const corners = [[-1, 0, u0, 0.502], [1, 0, u0 + 0.492, 0.502], [1, 1, u0 + 0.492, 0.996], [-1, 1, u0, 0.996]];
+    for (const [sx, y, u, v] of corners) {
+      pos.push(cx * sx, y, cz * sx);
+      // crown-shaped normals: out from the middle and up
+      const n = new THREE.Vector3(cx * sx, y - 0.35, cz * sx).normalize();
+      nor.push(n.x, n.y, n.z);
+      uv.push(u, v);
+      aux.push(0.8, 0, k * 0.5, 1);
+    }
+    idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute('aux', new THREE.Float32BufferAttribute(aux, 4));
+  g.setIndex(idx);
+  return g;
+}
 
 // One tree variant drawn in its three levels: near, mid, far; each a leaves
 // mesh and (unless a shrub) a bark mesh, filled with the trees at that range.
@@ -257,6 +303,7 @@ export class Vegetation {
     scene.add(this.group);
     // until the hunter is placed, sort around the middle of the ground
     this.updateLod(0, 0);
+    this.buildFarForest(scene, mats);
 
     // boulders, outcrops and heaps of field stones
     this.rocks = new Rocks(this.hunt, this.terrain, tierSettings(this.quality));
@@ -267,6 +314,60 @@ export class Vegetation {
       if (!this.rockGrid.has(k)) this.rockGrid.set(k, []);
       this.rockGrid.get(k).push(st);
     }
+  }
+
+  buildFarForest(scene, mats) {
+    const cell = FAR_CELL[this.quality] ?? 17;
+    const kinds = (FAR_KINDS[this.terrain.kind] || []).filter((t) => mats[t]);
+    if (!cell || !kinds.length || !this.terrain.farCover) return;
+    const t = this.terrain;
+    const seed = this.hunt.seed;
+    const lists = kinds.map(() => []);
+    const S = FAR_COVER_SIZE / 2 - 20;
+    const half = CORE_SIZE / 2 + 4;
+    const m4 = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const sv = new THREE.Vector3();
+    const p = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+    for (let gz = -S; gz < S; gz += cell) {
+      for (let gx = -S; gx < S; gx += cell) {
+        const ix = Math.floor(gx);
+        const iz = Math.floor(gz);
+        const x = gx + hash2(ix, iz, seed + 31) * cell;
+        const z = gz + hash2(ix, iz, seed + 37) * cell;
+        // the hunting ground has its own trees
+        if (Math.abs(x) < half && Math.abs(z) < half) continue;
+        if (hash2(ix, iz, seed + 6161) > t.farCoverAt(x, z) * 0.9) continue;
+        const k = Math.floor(hash2(ix, iz, seed + 41) * kinds.length);
+        const [H, w] = FAR_SIZE[kinds[k]];
+        const r = hash2(ix, iz, seed + 43);
+        const sc = H * (0.7 + 0.6 * r);
+        p.set(x, t.farHeight(x, z) - 0.6, z);
+        q.setFromAxisAngle(up, r * 40);
+        sv.set(sc * w, sc, sc * w);
+        m4.compose(p, q, sv);
+        lists[k].push(m4.clone());
+      }
+    }
+    const geo = farTreeGeo();
+    const col = new THREE.Color();
+    this.far = [];
+    kinds.forEach((kind, k) => {
+      const list = lists[k];
+      if (!list.length) return;
+      const im = new THREE.InstancedMesh(geo, mats[kind].leaf, list.length);
+      list.forEach((m, i) => {
+        im.setMatrixAt(i, m);
+        const l = 0.75 + 0.3 * hash2(i, k, seed);
+        im.setColorAt(i, col.setRGB(l, l, l * 0.97));
+      });
+      im.castShadow = false;
+      im.receiveShadow = false;
+      im.computeBoundingSphere();
+      scene.add(im);
+      this.far.push(im);
+    });
   }
 
   updateLod(x, z) {

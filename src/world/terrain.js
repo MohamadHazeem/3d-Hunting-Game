@@ -11,6 +11,10 @@ import { wetness } from './shading.js';
 export const CORE_SIZE = 1000;
 export const PLAY_RADIUS = 430;
 const OUTER_SIZE = 16000;
+// the far woods: a cover map round the hunting ground that both the far
+// terrain's colour and the far tree cards (vegetation.js) follow
+export const FAR_COVER_SIZE = 6000;
+const FAR_COVER_RES = 384;
 const MASK_RES = 256;
 // terraces: height of one step, and where in each step the riser begins
 const TERRACE_STEP = 1.7;
@@ -249,7 +253,75 @@ export class Terrain {
   }
 
   // ---------- meshes ----------
+  // How wooded the land round the hunting ground is (0..1): patches of forest
+  // or scattered trees by kind of country, none above the tree line, on
+  // cliffs or by the sea.
+  buildFarCover() {
+    const R = FAR_COVER_RES;
+    const S = FAR_COVER_SIZE;
+    const n = this.noise2;
+    const amount = { forest: 0.62, terraces: 0.42, highland: 0.36, plain: 0.12 }[this.kind] ?? 0.3;
+    const data = new Uint8Array(R * R);
+    this.farCover = new Float32Array(R * R);
+    const e = S / R;
+    const H = new Float32Array(R * R);
+    for (let j = 0; j < R; j++) for (let i = 0; i < R; i++) H[j * R + i] = this.rawHeight(-S / 2 + (i + 0.5) * e, -S / 2 + (j + 0.5) * e);
+    // the share of the country under trees sets the noise threshold
+    const c0 = 0.5 + (0.5 - amount) * 0.35;
+    for (let j = 0; j < R; j++) {
+      for (let i = 0; i < R; i++) {
+        const x = -S / 2 + (i + 0.5) * e;
+        const z = -S / 2 + (j + 0.5) * e;
+        const h = H[j * R + i];
+        const sl = Math.hypot(H[j * R + Math.min(R - 1, i + 1)] - h, H[Math.min(R - 1, j + 1) * R + i] - h) / e;
+        const f = n.fbm(x / 520 + 17, z / 520 - 5, 4) * 0.75 + n.fbm(x / 130, z / 130, 2) * 0.25;
+        let c = smoothstep(c0 - 0.06, c0 + 0.06, f * 0.5 + 0.5);
+        c *= 1 - smoothstep(1500, 1950, h); // tree line
+        c *= 1 - smoothstep(0.45, 0.8, sl); // cliffs
+        c *= smoothstep(4, 12, h); // not on the beach
+        this.farCover[j * R + i] = c;
+        data[j * R + i] = Math.round(c * 255);
+      }
+    }
+    const t = new THREE.DataTexture(data, R, R, THREE.RedFormat);
+    t.magFilter = t.minFilter = THREE.LinearFilter;
+    t.needsUpdate = true;
+    this.farCoverTex = t;
+  }
+
+  farCoverAt(x, z) {
+    const R = FAR_COVER_RES;
+    const i = Math.floor((x / FAR_COVER_SIZE + 0.5) * R);
+    const j = Math.floor((z / FAR_COVER_SIZE + 0.5) * R);
+    if (!this.farCover || i < 0 || j < 0 || i >= R || j >= R) return 0;
+    return this.farCover[j * R + i];
+  }
+
+  // Height of the drawn far ring (its triangles, not the smooth function),
+  // so things placed on it sit on the ground you see.
+  farHeight(x, z) {
+    const o = this.outer;
+    if (!o) return this.rawHeight(x, z);
+    const r = Math.hypot(x, z);
+    const t = Math.pow(Math.max(0, (r - 380) / (OUTER_SIZE / 2)), 1 / 2.2);
+    const fr = Math.min(o.RN - 1e-4, t * o.RN);
+    let ang = Math.atan2(z, x);
+    if (ang < 0) ang += Math.PI * 2;
+    const fa = (ang / (Math.PI * 2)) * o.AN;
+    const i = Math.floor(fr);
+    const j = Math.floor(fa) % o.AN;
+    const j1 = (j + 1) % o.AN;
+    const u = fr - i;
+    const v = fa - Math.floor(fa);
+    const H = o.h;
+    const h00 = H[i * o.AN + j], h01 = H[i * o.AN + j1], h10 = H[(i + 1) * o.AN + j], h11 = H[(i + 1) * o.AN + j1];
+    // the quad's two triangles: (a0, a1, b0) and (a1, b1, b0)
+    if (u + v <= 1) return h00 + v * (h01 - h00) + u * (h10 - h00);
+    return h11 + (1 - v) * (h10 - h11) + (1 - u) * (h01 - h11);
+  }
+
   async buildMeshes(scene) {
+    this.buildFarCover();
     const mat = await this.makeMaterial(true);
     const matOuter = await this.makeMaterial(false);
 
@@ -343,6 +415,7 @@ export class Terrain {
         oidx.push(a0, a1, b0, a1, b1, b0);
       }
     }
+    this.outer = { RN, AN, h: new Float32Array(opos.filter((_, k) => k % 3 === 1)) };
     const ogeo = new THREE.BufferGeometry();
     ogeo.setAttribute('position', new THREE.Float32BufferAttribute(opos, 3));
     ogeo.setIndex(oidx);
@@ -542,6 +615,8 @@ export class Terrain {
       tSnow: { value: snowD },
       tWall: { value: wallD }, nWall: { value: wallN },
       tMask: { value: this.maskTex },
+      tFarCover: { value: this.farCoverTex },
+      uFarCover: { value: FAR_COVER_SIZE },
       uCore: { value: CORE_SIZE },
       uGrassTint: { value: new THREE.Vector3(g[0], g[1], g[2]) },
       uSnowLine: { value: hunt.snow ? hunt.terrain.baseHeight + 420 : ({ November: 2500, December: 1850, January: 1600 })[hunt.month] || 99999 },
@@ -572,7 +647,8 @@ export class Terrain {
 const TERRAIN_FRAG_PARS = /* glsl */ `
 varying vec3 vWPos;
 varying vec3 vWNor;
-uniform sampler2D tGrass, nGrass, tSoil, nSoil, tForest, nForest, tRock, nRock, tSnow, tWall, nWall, tMask;
+uniform sampler2D tGrass, nGrass, tSoil, nSoil, tForest, nForest, tRock, nRock, tSnow, tWall, nWall, tMask, tFarCover;
+uniform float uFarCover;
 uniform float uCore, uSnowLine, uSea, uWet;
 uniform vec3 uGrassTint;
 
@@ -629,6 +705,10 @@ float wRock = (1.0 - msk.b) * smoothstep(0.28 + macro * 0.12, 0.5, slope);
   wRock = smoothstep(0.22, 0.5, slope + macro * 0.15);
   // distant hillsides: scrub & pine cover reads as dark olive green
   float cover = smoothstep(0.35, 0.65, vnoise(vWPos.xz * 0.004) * 0.7 + macro * 0.3) * (1.0 - smoothstep(1700.0, 2200.0, vWPos.y));
+  // nearer in, the woods follow the cover map the far tree cards stand on
+  vec2 fcuv = vWPos.xz / uFarCover + 0.5;
+  float fcIn = 1.0 - smoothstep(0.42, 0.5, max(abs(fcuv.x - 0.5), abs(fcuv.y - 0.5)));
+  cover = mix(cover, texture2D(tFarCover, fcuv).r * (0.75 + 0.5 * macro), fcIn);
   cForest = mix(vec3(0.075, 0.09, 0.05), vec3(0.11, 0.12, 0.07), macro);
   wForest = cover * (1.0 - wRock) * 0.85;
   wSoil = 0.0;
