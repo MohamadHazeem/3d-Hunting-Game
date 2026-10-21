@@ -4,6 +4,7 @@ import { createBirdMesh, poseWings, poseLegs, featherColor } from './birdModel.j
 import { Random, clamp } from '../core/rng.js';
 import { PLAY_RADIUS } from '../world/terrain.js';
 import { audio } from '../audio/audio.js';
+import { settings } from '../core/settings.js';
 
 // Bird behaviour.
 //
@@ -29,14 +30,24 @@ const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
 const _eye = new THREE.Vector3();
 const _d2 = new THREE.Vector2();
+const _n = new THREE.Vector3();
+// how far footsteps carry on each kind of ground (grass = 1)
+const LOUD = { leaves: 1.35, gravel: 1.2, stone: 1.1, stubble: 1.05, grass: 1, snow: 0.75 };
 const FINE_DAY = { cloud: 0, rain: 0, snow: 0, fog: 0 };
 
+// The "Bird size" setting. Real size is true to life (an 18 cm quail at 30 m
+// is a few pixels); "visible" draws every bird ~1.8× and grows its hit zone
+// with it, so what you see is what you can hit.
+export const BIRD_SIZE = { realistic: 1, visible: 1.8 };
+export const birdSizeMul = () => BIRD_SIZE[settings.birdSize] ?? BIRD_SIZE.visible;
+
 class Bird {
-  constructor(id, spId, scene) {
+  constructor(id, spId, scene, size = 1) {
     this.id = id;
     this.spId = spId;
     this.sp = SPECIES[spId];
-    this.model = createBirdMesh(spId);
+    this.size = size;
+    this.model = createBirdMesh(spId, { scale: size, field: true });
     scene.add(this.model.root);
     this.scene = scene;
     this.pos = new THREE.Vector3();
@@ -86,7 +97,12 @@ class Bird {
   }
 
   get radius() {
-    return this.sp.length * 0.24;
+    return this.sp.length * 0.24 * this.size;
+  }
+
+  setSize(k) {
+    this.size = k;
+    this.model.root.scale.setScalar(this.sp.length * k);
   }
 }
 
@@ -105,15 +121,17 @@ export class BirdManager {
     this.groundTimer = 0;
     this.storkTimer = 60 + Math.random() * 120;
     this.groups = [];
+    this.sizeMul = birdSizeMul();
     this.feathers = new Feathers(scene, (x, z) => terrain.height(x, z));
+    this.feathers.sizeMul = this.sizeMul;
     this.time = 0;
     this.weights = hunt.species;
     this.wind = new THREE.Vector3(); // m/s, the way it blows
     this.passage = 1; // how strong the migration is today
     this.passageHeading = Math.PI; // migrants head south in autumn (compass bearing)
-    this.crouched = new Map(); // player id -> was crouching last frame
-    this.stoodAt = new Map(); // player id -> when they last stood up
     this.weather = null; // the day's Weather (rain, snow, fog 0..1), set by the Game
+    this.sunset = 17.5; // hour of sunset (the evening flight is keyed to it), set by the Game
+    this.firstFlockAt = 3; // a flock comes past within the first ~20 s of the hunt
   }
 
   // ---------------- weather ----------------
@@ -146,7 +164,7 @@ export class BirdManager {
   }
 
   create(spId, id = null) {
-    const b = new Bird(id ?? this.nextId++, spId, this.scene);
+    const b = new Bird(id ?? this.nextId++, spId, this.scene, this.sizeMul);
     this.birds.set(b.id, b);
     return b;
   }
@@ -154,6 +172,13 @@ export class BirdManager {
   remove(b) {
     b.dispose();
     this.birds.delete(b.id);
+  }
+
+  // The "Bird size" setting changed: every bird (and its hit zone) follows.
+  setSize(k) {
+    this.sizeMul = k;
+    this.feathers.sizeMul = k;
+    for (const b of this.birds.values()) b.setSize(k);
   }
 
   ground(x, z) {
@@ -166,23 +191,28 @@ export class BirdManager {
   // up quail or woodcock gives a flush every minute or two, like a good day.
   groundTarget(spId) {
     const w = this.weights[spId] || 0;
-    return Math.round(w * (spId === 'quail' ? 40 : 22));
+    return w ? Math.max(5, Math.round(w * (spId === 'quail' ? 50 : 30))) : 0;
   }
 
+  // Most of the morning's birds sit 60-120 m out, a walk away; a few closer.
   initialPopulation(players) {
     for (const spId of ['quail', 'woodcock']) {
       const n = this.groundTarget(spId);
-      for (let i = 0; i < n; i++) this.spawnGround(spId, players, 20);
+      for (let i = 0; i < n; i++) this.spawnGround(spId, players, i % 3 ? 60 : 25, 125);
     }
   }
 
-  groundSpot(spId, players, minDist) {
-    for (let tries = 0; tries < 60; tries++) {
-      const center = this.rnd.pick(players).pos;
+  // A place to sit: in a ring minDist..maxDist round a hunter, or anywhere
+  // within maxDist of `center` (a need zone) but no closer than minDist to
+  // any hunter.
+  groundSpot(spId, players, minDist, maxDist = 130, center = null) {
+    for (let tries = 0; tries < 90; tries++) {
+      const c = center || this.rnd.pick(players).pos;
       const a = this.rnd.float(0, Math.PI * 2);
-      const r = minDist + Math.sqrt(this.rnd.next()) * (140 - minDist);
-      const x = center.x + Math.cos(a) * r;
-      const z = center.z + Math.sin(a) * r;
+      const r0 = center ? 0 : minDist;
+      const r = r0 + Math.sqrt(this.rnd.next()) * (maxDist - r0);
+      const x = c.x + Math.cos(a) * r;
+      const z = c.z + Math.sin(a) * r;
       if (Math.hypot(x, z) > PLAY_RADIUS - 15) continue;
       if (players.some((p) => Math.hypot(p.pos.x - x, p.pos.z - z) < minDist)) continue;
       if (this.terrain.normal(x, z).y < 0.8) continue;
@@ -199,8 +229,8 @@ export class BirdManager {
     return m.forest >= 0.4 || this.veg.treesNear(x, z, 7).length > 0;
   }
 
-  spawnGround(spId, players, minDist = 40) {
-    const spot = this.groundSpot(spId, players, minDist);
+  spawnGround(spId, players, minDist = 40, maxDist = 130, center = null) {
+    const spot = this.groundSpot(spId, players, minDist, maxDist, center);
     if (!spot) return null;
     // quail often sit in loose little groups after a night of migration
     const n = spId === 'quail' && this.rnd.chance(0.35) ? this.rnd.int(2, 3) : 1;
@@ -240,13 +270,14 @@ export class BirdManager {
     }
     const dir = new THREE.Vector2(Math.cos(a), Math.sin(a));
     const side = new THREE.Vector2(-dir.y, dir.x);
-    const lateral = sp.behaviour === 'soar' ? this.rnd.float(-150, 150) : this.rnd.gauss() * 45;
-    const startD = sp.behaviour === 'soar' ? 900 : 380;
+    // most flight lines pass within ~25 m of a hunter, a good few right overhead
+    const lateral = opts.lateral ?? (sp.behaviour === 'soar' ? this.rnd.float(-150, 150) : this.rnd.gauss() * 18);
+    const startD = opts.startD ?? (sp.behaviour === 'soar' ? 900 : 330);
     const start = new THREE.Vector2(p.x, p.z).addScaledVector(dir, startD).addScaledVector(side, lateral + this.rnd.float(-30, 30));
     const pass = new THREE.Vector2(p.x, p.z).addScaledVector(side, lateral);
     const end = new THREE.Vector2(p.x, p.z).addScaledVector(dir, -startD - 100).addScaledVector(side, lateral + this.rnd.float(-60, 60));
     let count = this.rnd.int(...(sp.flock || [1, 1]));
-    let alt = this.rnd.float(...sp.flight.alt);
+    let alt = opts.alt ?? this.passAlt(sp);
     // Snow buries the food on the tops and pushes fieldfare down in big,
     // hungry flocks that skim low over the junipers looking for berries.
     const snow = this.wx.snow;
@@ -258,8 +289,8 @@ export class BirdManager {
     group.path = [new THREE.Vector3(pass.x, 0, pass.y), new THREE.Vector3(end.x, 0, end.y)];
     group.dir.set(-dir.x, -dir.y);
     // some flocks will drop into trees along the line
-    if (sp.behaviour === 'flyover' && this.rnd.chance(opts.perchChance ?? 0.38)) {
-      group.perch = this.pickPerchTrees(sp, pass.x, pass.y, 110, Math.ceil(count / 3));
+    if (sp.behaviour === 'flyover' && this.rnd.chance(opts.perchChance ?? 0.5)) {
+      group.perch = this.pickPerchTrees(sp, pass.x, pass.y, 90, Math.ceil(count / 3));
     }
     const spread = (sp.flocking || DEFAULT_FLOCK).spread * 0.6;
     for (let i = 0; i < count; i++) {
@@ -296,6 +327,14 @@ export class BirdManager {
     this.groups.push(group);
   }
 
+  // Height of a passing flock over the ground: low lines are the rule (most
+  // of them under half the species' ceiling), the high ones the exception.
+  passAlt(sp) {
+    const [lo, hi] = sp.flight.alt;
+    if (sp.behaviour === 'soar') return this.rnd.float(lo, hi);
+    return lo * 0.85 + (hi - lo) * 0.7 * this.rnd.next() ** 1.7;
+  }
+
   pickPerchTrees(sp, x, z, radius, n) {
     const near = this.veg.treesNear(x, z, radius).filter((t) => (sp.perchPrefer || []).includes(t.type));
     if (!near.length) return null;
@@ -304,23 +343,91 @@ export class BirdManager {
     return out;
   }
 
+  // A spot on the outside of the crown, where a feeding bird can be seen: the
+  // top of the tree, or out on the edge of it. The crown is taken as an
+  // ellipsoid from its centre (crownY) up to the treetop.
   perchPoint(tr) {
     const a = this.rnd.float(0, Math.PI * 2);
-    const r = this.rnd.float(0, tr.crownR * 0.5);
-    return new THREE.Vector3(tr.x + Math.cos(a) * r, tr.y + tr.h * this.rnd.float(0.82, 0.97), tr.z + Math.sin(a) * r);
+    const narrow = tr.type === 'cedar' || tr.type === 'juniper' || tr.type === 'pine';
+    const top = this.rnd.chance(0.6);
+    const k = top ? this.rnd.float(0, narrow ? 0.3 : 0.5) : this.rnd.float(narrow ? 0.35 : 0.6, narrow ? 0.55 : 0.85);
+    const r = k * tr.crownR;
+    const semi = Math.max(0.5, tr.h - tr.crownY);
+    const y = tr.y + Math.min(tr.h, tr.crownY + semi * Math.sqrt(Math.max(0, 1 - k * k)) * 0.97) + 0.03;
+    return new THREE.Vector3(tr.x + Math.cos(a) * r, y, tr.z + Math.sin(a) * r);
   }
 
   flyoverRate(spId, hour) {
-    // flocks per minute; thrush & finch passage peaks in the first hours after dawn
+    // flocks per minute; the passage peaks in the first hours after dawn and
+    // again in the last hour or two before sunset, with birds moving all day
     const w = this.weights[spId] || 0;
     if (!w) return 0;
-    const dawn = Math.exp(-(((hour - 7.2) / 1.6) ** 2));
-    const dusk = Math.exp(-(((hour - 16.3) / 0.9) ** 2)) * 0.6;
+    const dawn = Math.exp(-(((hour - 7.2) / 1.8) ** 2));
+    const dusk = Math.exp(-(((hour - (this.sunset - 1)) / 1.2) ** 2)) * 0.8;
     const base = { fieldfare: 2.2, chaffinch: 2.0, turtleDove: 1.6, woodpigeon: 1.2 }[spId] || 3.0;
-    return base * w * (0.35 + dawn + dusk) * this.passage * this.rainPassage;
+    return 1.6 * base * w * (0.6 + dawn + dusk) * this.passage * this.rainPassage;
   }
 
-  // ---------------- seeing the hunter ----------------
+  // The first flock of the day comes by early and close, so the hunt starts
+  // with something to look at.
+  firstFlock(players, hour) {
+    const list = ['songThrush', 'fieldfare', 'chaffinch', 'turtleDove', 'woodpigeon'].filter((s) => this.flyoverRate(s, hour) > 0);
+    if (!list.length || !players.length) return;
+    let total = 0;
+    for (const s of list) total += this.flyoverRate(s, hour);
+    let r = this.rnd.next() * total;
+    const spId = list.find((s) => (r -= this.flyoverRate(s, hour)) <= 0) || list[0];
+    const sp = SPECIES[spId];
+    this.spawnFlock(spId, players, { startD: 210, lateral: this.rnd.float(8, 22) * (this.rnd.chance(0.5) ? 1 : -1), alt: sp.flight.alt[0] * this.rnd.float(0.9, 1.2), perchChance: 0.3 });
+  }
+
+  // ---------------- seeing and hearing the hunter ----------------
+
+  // How a hunter shows and sounds, as two numbers 0..1 (the HUD's meters show
+  // exactly these, so they tell the truth):
+  //   vis   - how easily a bird picks him out: stance, movement, cover, fog.
+  //           0.85 is a man walking in the open, seen at a species' full sight.
+  //   noise - how far his footsteps carry: speed, what he walks on, and the
+  //           wind and rain that cover them. 0.5 is walking on grass.
+  // Call once a frame per hunter (it also notices him standing up suddenly).
+  exposure(p) {
+    let e = p._exp;
+    if (!e) e = p._exp = { vis: 0, noise: 0, cover: false, surface: 'grass', stoodAt: -99, wasCrouch: false, at: null, t: -1 };
+    if (e.t === this.time) return e;
+    e.t = this.time;
+    if (e.wasCrouch && !p.crouch) e.stoodAt = this.time;
+    e.wasCrouch = p.crouch;
+    // cover and footing only change as he moves
+    if (!e.at || Math.hypot(e.at.x - p.pos.x, e.at.z - p.pos.z) > 0.8) {
+      e.at = { x: p.pos.x, z: p.pos.z };
+      e.cover = this.inCover(p);
+      e.surface = this.surfaceAt(p.pos.x, p.pos.z);
+    }
+    const v = p.speed || 0;
+    let vis = p.crouch ? 0.6 : 1;
+    vis *= v < 0.3 ? 0.5 : v < 1.8 ? 0.7 : v > 4 ? 1.25 : 0.85;
+    if (e.cover) vis *= 0.55;
+    vis *= this.fogSight;
+    // a hunter who stands up suddenly gives himself away
+    if (this.time - e.stoodAt < 0.8) vis = Math.max(vis, 0.95);
+    e.vis = clamp(vis, 0, 1);
+    let n = v < 0.3 ? 0 : Math.min(1, v / 6.2) * (LOUD[e.surface] || 1);
+    if (p.crouch) n *= 0.7; // a crouching hunter places his feet
+    n *= (1 - 0.35 * Math.min(1, this.wind.length() / 9)) * (1 - 0.3 * this.wx.rain);
+    e.noise = clamp(n, 0, 1);
+    return e;
+  }
+
+  // What the ground underfoot is, for how loud it is to walk on.
+  surfaceAt(x, z) {
+    const t = this.terrain;
+    const m = t.maskAt(x, z);
+    if (m.snow > 0.45) return 'snow';
+    if (t.road(x, z) < 2.2) return 'gravel';
+    if (m.forest > 0.45) return 'leaves';
+    if (m.terrace > 0.5 && t.normal(x, z, _n).y < 0.93) return 'stone';
+    return m.field > 0.5 ? 'stubble' : 'grass';
+  }
 
   eyeOf(p, out) {
     return out.set(p.pos.x, p.pos.y + (p.crouch ? 1.05 : 1.65), p.pos.z);
@@ -377,13 +484,9 @@ export class BirdManager {
       const dh = Math.hypot(dx, dz) || 1;
       const d = Math.hypot(dh, p.pos.y - g.c.y);
       if (d > sp.sight * 1.3) continue;
-      let range = sp.sight * this.fogSight;
-      range *= p.speed > 0.6 ? 1 : 0.5;
-      if (p.speed > 3.5) range *= 1.25;
-      if (p.crouch) range *= 0.7;
+      let range = (sp.sight * this.exposure(p).vis) / 0.85;
       if ((dx * g.dir.x + dz * g.dir.y) / dh < -0.2) range *= 0.6; // behind the flock
       if (d > range) continue;
-      if (this.inCover(p) && d > range * 0.55) continue;
       if (!this.lineOfSight(g.c, this.eyeOf(p, _eye))) continue;
       this.spook(g, p.pos, false);
       return;
@@ -477,6 +580,10 @@ export class BirdManager {
 
   simulate(dt, players, hour) {
     // spawning
+    if (this.firstFlockAt >= 0 && this.time > this.firstFlockAt) {
+      this.firstFlockAt = -1;
+      this.firstFlock(players, hour);
+    }
     this.flyoverTimer -= dt;
     if (this.flyoverTimer <= 0) {
       this.flyoverTimer = 1;
@@ -484,12 +591,12 @@ export class BirdManager {
       for (const b of this.birds.values()) if (b.state === 'flying' && b.sp.behaviour !== 'ground') flyCount++;
       for (const spId of ['songThrush', 'fieldfare', 'chaffinch', 'turtleDove', 'woodpigeon']) {
         const perSec = this.flyoverRate(spId, hour) / 60;
-        if (flyCount < 70 && this.rnd.chance(perSec)) this.spawnFlock(spId, players);
+        if (flyCount < 80 && this.rnd.chance(perSec)) this.spawnFlock(spId, players);
       }
     }
     this.groundTimer -= dt;
     if (this.groundTimer <= 0) {
-      this.groundTimer = 6;
+      this.groundTimer = 4;
       for (const spId of ['quail', 'woodcock']) {
         const target = this.groundTarget(spId) * Math.max(1, players.length * 0.7);
         if (!target) continue;
@@ -497,10 +604,11 @@ export class BirdManager {
         for (const b of [...this.birds.values()]) {
           if (b.spId !== spId || b.state !== 'hidden') continue;
           const far = players.every((p) => Math.hypot(p.pos.x - b.pos.x, p.pos.z - b.pos.z) > 220);
-          if (far) this.remove(b); // the hunters have moved on
+          if (far && !b.zone) this.remove(b); // the hunters have moved on
           else n++;
         }
-        if (n < target) this.spawnGround(spId, players, 60);
+        if (n < target) this.spawnGround(spId, players, 60, 125);
+        if (n < target - 3) this.spawnGround(spId, players, 60, 125);
       }
     }
     if (this.weights.stork) {
@@ -511,11 +619,8 @@ export class BirdManager {
       }
     }
 
-    // a hunter who stands up suddenly gives himself away
-    for (const p of players) {
-      if (this.crouched.get(p.id) && !p.crouch) this.stoodAt.set(p.id, this.time);
-      this.crouched.set(p.id, p.crouch);
-    }
+    // how each hunter shows and sounds this frame (and whether he just stood up)
+    for (const p of players) this.exposure(p);
 
     for (const g of this.groups) this.updateGroup(g, dt, players);
     this.mergeT = (this.mergeT || 0) - dt;
@@ -602,14 +707,17 @@ export class BirdManager {
     for (const p of players) {
       const d = Math.hypot(p.pos.x - b.pos.x, p.pos.z - b.pos.z);
       nearest = Math.min(nearest, d);
+      if (d > b.flushDist * 4) continue;
+      // a sitting bird goes when a hunter it can hear (and see) gets close;
       // birds are wilder on a windy day, sit tighter in the rain
-      const k = (p.crouch ? 0.75 : 1) * (p.speed < 0.3 ? 0.85 : 1) * (1 + 0.3 * Math.min(1, this.wind.length() / 9)) * this.rainSitTight;
+      const e = this.exposure(p);
+      const k = (0.6 + 0.25 * e.vis + 0.45 * e.noise) * (p.crouch ? 0.9 : 1) * (1 + 0.3 * Math.min(1, this.wind.length() / 9)) * this.rainSitTight;
       if (d < b.flushDist * k) {
         this.flush(b, p.pos);
         return;
       }
       // a quail hearing someone coming often runs off before it flies
-      if (b.sp.run && !b.runRolled && b.runs < 2 && p.speed > 0.3 && d < b.flushDist * 2.4) {
+      if (b.sp.run && !b.runRolled && b.runs < 2 && e.noise > 0.05 && d < b.flushDist * (1.2 + 2.4 * e.noise)) {
         b.runRolled = true;
         if (this.rnd.chance(b.sp.run)) {
           this.startRun(b, p.pos);
@@ -853,6 +961,7 @@ export class BirdManager {
           desired.copy(b.heading);
           if (Math.hypot(b.pos.x, b.pos.z) > PLAY_RADIUS + 320) return this.remove(b);
         }
+        targetAlt = Math.max(targetAlt, this.canopyAhead(b, dt) + 2.5);
         break;
       }
       case 'toPerch': {
@@ -901,6 +1010,7 @@ export class BirdManager {
       default: {
         // 'leave': a lone bird flying off
         desired.copy(b.heading);
+        targetAlt = Math.max(targetAlt, this.canopyAhead(b, dt) + 2.5);
         if (Math.hypot(b.pos.x, b.pos.z) > PLAY_RADIUS + 320) return this.remove(b);
       }
     }
@@ -989,6 +1099,19 @@ export class BirdManager {
     }
   }
 
+  // How high the treetops ahead stand over the ground here: low flight lines
+  // skim over the crowns rather than through them.
+  canopyAhead(b, dt) {
+    b.canT = (b.canT || 0) - dt;
+    if (b.canT <= 0) {
+      b.canT = 0.3;
+      let top = -Infinity;
+      for (const t of this.veg.treesNear(b.pos.x + b.heading.x * 8, b.pos.z + b.heading.y * 8, 9)) top = Math.max(top, t.y + t.h);
+      b.canopy = top > -Infinity ? top - this.ground(b.pos.x, b.pos.z) : 0;
+    }
+    return b.canopy;
+  }
+
   callInterval(b) {
     switch (b.sp.call) {
       case 'chack':
@@ -1032,13 +1155,11 @@ export class BirdManager {
       const eye = this.eyeOf(p, _eye);
       const d = eye.distanceTo(b.pos);
       if (d > b.alarm * 1.5) continue;
-      let k = b.alarm;
-      k *= p.crouch ? 0.6 : 1;
-      k *= p.speed < 0.3 ? 0.55 : p.speed < 1.8 ? 0.8 : p.speed > 4 ? 1.25 : 1;
-      if (this.time - (this.stoodAt.get(p.id) ?? -99) < 0.8) k = Math.max(k, b.alarm * 1.2);
-      if (d > k) continue;
-      // out of sight (or lost in the fog) it only hears footsteps close by
-      if (d > k * 0.45 && (d > k * this.fogSight || !this.lineOfSight(b.pos, eye, b.perchTree))) continue;
+      const e = this.exposure(p);
+      // footsteps it hears close by, in sight or not
+      if (d < b.alarm * 0.7 * e.noise) return p.pos;
+      // and a hunter it can see, out to its alarm distance
+      if (d > (b.alarm * e.vis) / 0.85 || !this.lineOfSight(b.pos, eye, b.perchTree)) continue;
       return p.pos;
     }
     return null;
@@ -1341,7 +1462,7 @@ export class BirdManager {
       if (d2 < r * r && t < bestT) {
         best = bird;
         bestT = t;
-      } else if (bird.state === 'flying' && d2 < (bird.sp.wingspan * 0.42) ** 2 && Math.abs(py) < bird.sp.length * 0.08 && t < bestT) {
+      } else if (bird.state === 'flying' && d2 < (bird.sp.wingspan * 0.42 * bird.size) ** 2 && Math.abs(py) < bird.sp.length * 0.08 * bird.size && t < bestT) {
         // pellet through the wing
         if (Math.random() < 0.4) {
           best = bird;
@@ -1628,7 +1749,7 @@ class Feathers {
 
   burst(pos, spId, n, onGround = false) {
     const cols = featherColor(spId);
-    const size = SPECIES[spId].length * 0.18;
+    const size = SPECIES[spId].length * 0.18 * (this.sizeMul || 1);
     for (let i = 0; i < n; i++) {
       if (this.p.length >= this.cap) this.p.shift();
       const f = {

@@ -20,6 +20,9 @@ const DEFAULTS = {
   choke0: 'IC',
   choke1: 'F',
   shotSize: '8',
+  birdSize: 'visible', // 'visible' (birds ~1.8× life size, easier to see and hit) | 'realistic'
+  birdMarkers: true, // markers over birds you have spotted with the binoculars
+  flockArrows: true, // arrows at the screen edge for flocks heading your way
 };
 
 function read(k, d) {
