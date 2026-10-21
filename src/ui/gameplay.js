@@ -497,16 +497,21 @@ export class Gameplay {
       const s = this.screen(p, W, H);
       if (!s.front || s.x < -30 || s.x > W + 30 || s.y < -30 || s.y > H + 30) continue;
       const d = p.distanceTo(eye);
-      const it = items.find((o) => o.sp === b.spId && Math.hypot(o.x - s.x, o.y - s.y) < 56);
+      const it = items.find((o) => o.sp === b.spId && Math.hypot(o.x - s.x, o.y - s.y) < 110);
       if (it) {
         it.n++;
         it.d = Math.min(it.d, d);
         if (s.y < it.y) [it.x, it.y] = [s.x, s.y];
       } else items.push({ sp: b.spId, x: s.x, y: s.y, n: 1, d, prot: b.sp.protected });
     }
-    for (const it of items) {
+    // labels that would overlap are stacked upwards
+    const placed = [];
+    for (const it of items.sort((a, b) => b.y - a.y)) {
+      let y = it.y - 10;
+      while (placed.some((o) => Math.abs(o.x - it.x) < 130 && Math.abs(o.y - y) < 20)) y -= 22;
+      placed.push({ x: it.x, y });
       const v = { sp: birdName(it.sp), d: n0(it.d), n: n0(it.n) };
-      this.mark(it.prot ? 'prot' : 'tag', gt(it.n > 1 ? 'birdTagN' : 'birdTag', v), it.x, it.y - 10);
+      this.mark(it.prot ? 'prot' : 'tag', gt(it.n > 1 ? 'birdTagN' : 'birdTag', v), it.x, y);
     }
   }
 
@@ -581,11 +586,16 @@ export class Gameplay {
     let dx = _w.x;
     let dy = -_w.y;
     if (Math.hypot(dx, dy) < 1e-3) dy = 1;
-    const mx = W / 2 - 64;
-    const my = H / 2 - 64;
+    // on a frame inside the screen edge, clear of the compass, meters and
+    // objective line at the top and the bag and shells at the bottom
+    const top = 136;
+    const bottom = H - 120;
+    const cy = (top + bottom) / 2;
+    const mx = W / 2 - 70;
+    const my = (bottom - top) / 2;
     const k = Math.min(mx / Math.max(1e-6, Math.abs(dx)), my / Math.max(1e-6, Math.abs(dy)));
     const x = W / 2 + dx * k;
-    const y = H / 2 + dy * k;
+    const y = cy + dy * k;
     const el = this.arrows.get();
     el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     el.firstChild.style.transform = `rotate(${Math.atan2(dy, dx).toFixed(3)}rad)`;

@@ -8,7 +8,6 @@ const STR = {
   // meters
   vis: { en: 'Visibility', ar: 'الظهور' },
   noise: { en: 'Noise', ar: 'الضجيج' },
-  m: { en: 'm', ar: 'م' },
   // markers
   birdTag: { en: '{sp} · {d} m', ar: '{sp} · {d} م' },
   birdTagN: { en: '{sp} ×{n} · {d} m', ar: '{sp} ×{n} · {d} م' },
@@ -45,7 +44,6 @@ const STR = {
   pStubble: { en: 'stubble field', ar: 'حقل الحصيد' },
   pWater: { en: 'water trough', ar: 'حوض الماء' },
   pRidge: { en: 'open ridge', ar: 'التلّة المكشوفة' },
-  dusk: { en: 'dusk', ar: 'الغسق' },
   zoneFound: { en: 'Found: {title} — {place}, {hours}. Marked on your map (M).', ar: 'اكتشفت: {title} — {place}، {hours}. أُضيفت إلى خريطتك (M).' },
   zoneFoundBy: { en: '{name} found: {title} — marked on the map (M).', ar: 'اكتشف {name}: {title} — أُضيفت إلى الخريطة (M).' },
   signFeathers: { en: 'Feathers and droppings under the trees', ar: 'ريش وذَرق تحت الأشجار' },
@@ -60,9 +58,9 @@ const STR = {
   oGroundFeed: { en: '{sp} are feeding in the {place} until {to}', ar: 'تتغذّى طيور {sp} في {place} حتى {to}' },
   oHead: { en: ' — head {dir}, {d} m', ar: ' — اتّجه إلى {dir}، {d} م' },
   oThere: { en: ' — you are in the right place: keep still and watch', ar: ' — أنت في المكان الصحيح: اثبت وراقب' },
-  oSearch: { en: ' — somewhere to the {dir}: look for feathers and droppings, or glass the area with binoculars (B)', ar: ' — في مكانٍ ما إلى {dir}: ابحث عن الريش والذَّرق، أو تفحّص المكان بالمنظار (B)' },
-  oNext: { en: 'Next: {title} from {from}, to the {dir}', ar: 'التالي: {title} ابتداءً من {from}، إلى {dir}' },
-  oPickup: { en: 'Pick up your bird: {d} m to the {dir} (E)', ar: 'التقط طيرك: على بُعد {d} م إلى {dir} (E)' },
+  oSearch: { en: ' — somewhere to the {dir}: look for sign, or glass it with binoculars (B)', ar: ' — في مكانٍ ما باتجاه {dir}: ابحث عن الأثر أو تفحّص المكان بالمنظار (B)' },
+  oNext: { en: 'Next: {title} from {from}, to the {dir}', ar: 'التالي: {title} ابتداءً من {from}، باتجاه {dir}' },
+  oPickup: { en: 'Pick up your bird: {d} m to the {dir} (E)', ar: 'التقط طيرك: على بُعد {d} م باتجاه {dir} (E)' },
   oWait: { en: 'Stand still in cover and let the flocks come to you — the arrows show what is heading your way', ar: 'اثبت في مكانٍ مستور ودع الأسراب تأتي إليك — تشير الأسهم إلى ما يتّجه نحوك' },
   oWalk: { en: 'Walk the cover slowly to put up {sp} — let your dog work ahead', ar: 'امشِ في الغطاء ببطء لتُطيِّر {sp} — ودع كلبك يتقدّمك' },
   oSpot: { en: 'Glass the trees with binoculars (B) to spot birds and find where they feed', ar: 'تفحّص الأشجار بالمنظار (B) لرصد الطيور ومعرفة أماكن تغذّيها' },

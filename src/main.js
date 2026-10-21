@@ -920,9 +920,9 @@ class Game {
     if (old) for (const m of old.meshes) this.scene.remove(m.root);
     const into = Math.atan2(-this.wind.vec.x, -this.wind.vec.z);
     const meshes = list.map((d, i) => {
-      const m = createBirdMesh(d.sp);
+      const m = createBirdMesh(d.sp, { scale: this.birds.sizeMul });
       poseWings(m, 'perch', 0, 1, 0);
-      m.root.position.set(d.p[0], d.p[1] + SPECIES[d.sp].length * 0.12, d.p[2]);
+      m.root.position.set(d.p[0], d.p[1] + SPECIES[d.sp].length * 0.12 * this.birds.sizeMul, d.p[2]);
       m.root.rotation.y = into + (i - 1) * 0.3;
       this.scene.add(m.root);
       return m;

@@ -4,14 +4,14 @@
 .gp { position: absolute; inset: 0; pointer-events: none; }
 .gp .hidden { display: none; }
 
-.gp-meters { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); display: flex; gap: 22px; font-size: 11px; color: var(--dim); letter-spacing: 0.04em; }
+.gp-meters { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); display: flex; gap: 18px; font-size: 11px; color: var(--ink); letter-spacing: 0.04em; background: rgba(0, 0, 0, 0.32); padding: 3px 12px; border-radius: 11px; }
 .gp-meter { display: flex; align-items: center; gap: 6px; }
 .gp-ic { display: inline-flex; width: 15px; height: 15px; color: var(--ink); }
 .gp-ic svg { width: 100%; height: 100%; display: block; }
-.gp-meter i { display: block; width: 76px; height: 5px; background: rgba(0, 0, 0, 0.45); border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px rgba(243, 234, 216, 0.18); }
+.gp-meter i { display: block; width: 76px; height: 6px; background: rgba(0, 0, 0, 0.55); border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px rgba(243, 234, 216, 0.25); }
 .gp-meter b { display: block; height: 100%; width: 0; background: #8fd16a; transition: width 0.25s, background 0.25s; }
 
-.gp-objective { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); max-width: min(760px, 88vw); width: max-content; text-align: center; font-size: 13.5px; line-height: 1.4; color: var(--ink); background: rgba(0, 0, 0, 0.3); padding: 4px 12px; border-radius: 6px; unicode-bidi: plaintext; }
+.gp-objective { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); max-width: min(760px, 88vw); width: max-content; text-align: center; font-size: 13.5px; line-height: 1.4; color: var(--ink); background: rgba(0, 0, 0, 0.38); padding: 4px 12px; border-radius: 6px; unicode-bidi: plaintext; }
 
 .gp-caller { position: absolute; right: 24px; bottom: 96px; font-size: 12.5px; color: var(--ink); text-align: right; unicode-bidi: plaintext; }
 .gp-caller b { background: rgba(255, 255, 255, 0.2); padding: 0 6px; border-radius: 4px; margin: 0 2px; }

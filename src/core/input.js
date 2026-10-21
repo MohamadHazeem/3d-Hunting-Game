@@ -71,7 +71,7 @@ export class Input {
     if (lx > 0.3) now.add('KeyD');
     if (ly < -0.3) now.add('KeyW');
     if (ly > 0.3) now.add('KeyS');
-    const map = { 0: 'Space', 1: 'KeyC', 2: 'KeyR', 3: 'KeyE', 4: 'KeyB', 5: 'KeyQ', 8: 'Tab', 10: 'ShiftLeft', 11: 'KeyG', 12: 'KeyF', 13: 'KeyM' };
+    const map = { 0: 'Space', 1: 'KeyC', 2: 'KeyR', 3: 'KeyE', 4: 'KeyB', 5: 'KeyQ', 8: 'Tab', 10: 'ShiftLeft', 11: 'KeyG', 12: 'KeyF', 13: 'KeyM', 15: 'KeyV' };
     for (const [i, code] of Object.entries(map)) if (pressed(+i)) now.add(code);
     for (const k of now) {
       if (!prev.has(k)) this.justPressed.add(k);
