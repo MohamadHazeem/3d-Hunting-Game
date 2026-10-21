@@ -51,13 +51,38 @@ function renderMenu() {
       .join('');
     const ar = isAr();
     card.innerHTML = `<div class="t-ar">${h.ar}</div>${ar ? '' : `<div class="t-en">${h.en}</div>`}<div class="t-reg">${ar ? h.regionAr : h.region}</div>
-      <div class="t-when">${ar ? h.monthAr : `${h.month} · ${h.monthAr}`} · ${num(fmtHour(h.startHour))}</div><div class="t-blurb">${ar ? h.blurbAr : h.blurb}</div><div class="birds">${chips}</div>`;
+      <div class="t-when">${ar ? h.monthAr : `${h.month} · ${h.monthAr}`} · ${num(fmtHour(h.startHour))}</div><div class="t-blurb">${ar ? h.blurbAr : h.blurb}</div><div class="birds">${chips}</div>${bestHtml(h.id)}`;
     card.onclick = () => {
       settings.hunt = h.id;
       renderMenu();
     };
     el.append(card);
   }
+}
+
+// Your best day on each ground, kept in this browser.
+function loadBest() {
+  try {
+    return JSON.parse(localStorage.getItem('lbh.best') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveBest(huntId, me) {
+  const birds = Object.values(me.bag).reduce((a, b) => a + b, 0);
+  const all = loadBest();
+  const prev = all[huntId];
+  if (prev && (prev.score > me.score || (prev.score === me.score && prev.birds >= birds))) return;
+  all[huntId] = { birds, score: me.score, date: new Date().toISOString().slice(0, 10) };
+  try {
+    localStorage.setItem('lbh.best', JSON.stringify(all));
+  } catch {}
+}
+
+function bestHtml(huntId) {
+  const b = loadBest()[huntId];
+  return b && (b.birds || b.score) ? `<div class="best">${t('best', { n: num(b.birds), s: num(b.score) })}</div>` : '';
 }
 
 function fmtHour(h) {
@@ -757,6 +782,7 @@ class Game {
     this.renderer.setAnimationLoop(null);
     if (this.net) this.net.close();
     this.challenges.onEnd(this.players.get(this.myId), this.shotLog);
+    saveBest(this.hunt.id, this.players.get(this.myId));
     const me = this.players.get(this.myId);
     $('summaryBody').innerHTML = summaryHtml(me, this.shotLog, this.hunt, this.challenges.thisHunt);
     $('summary').classList.remove('hidden');
@@ -1040,6 +1066,15 @@ class Game {
     hud.setAmmo(gun.loaded, gun.reserve, !!gun.reloading);
     hud.setAim(this.player.ads && gun.ads > 0.6, this.player.binocs);
     hud.setClock(this.atmo.hour, this.hunt);
+    if (this.dog) {
+      const st = this.dog.state;
+      const key = st === 'point' ? 'dogPointing' : st === 'fetch' || st === 'carry' ? 'dogFetching' : this.dog.mode === 'heel' ? 'dogHeeling' : 'dogHunting';
+      if (key !== this.dogKey) {
+        this.dogKey = key;
+        $('dogStatus').innerHTML = t(key);
+        $('dogStatus').classList.toggle('point', key === 'dogPointing');
+      }
+    }
     const canRest = this.authority && this.atmo.hour > 10.3 && this.atmo.hour < this.atmo.month.set - 2.5;
     $('btnRest').classList.toggle('hidden', !canRest);
     hud.setWind(this.wind.from, this.wind.speed, this.player.yaw);
