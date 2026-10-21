@@ -26,6 +26,7 @@ import { HUD } from './ui/hud.js';
 import { HuntMap } from './ui/map.js';
 import { openGuide } from './ui/guide.js';
 import { Hints } from './ui/hints.js';
+import { renderBagPhoto } from './ui/bagPhoto.js';
 import { Net } from './net/net.js';
 import { Avatar } from './net/avatar.js';
 
@@ -756,8 +757,14 @@ class Game {
     this.renderer.setAnimationLoop(null);
     if (this.net) this.net.close();
     this.challenges.onEnd(this.players.get(this.myId), this.shotLog);
-    $('summaryBody').innerHTML = summaryHtml(this.players.get(this.myId), this.shotLog, this.hunt, this.challenges.thisHunt);
+    const me = this.players.get(this.myId);
+    $('summaryBody').innerHTML = summaryHtml(me, this.shotLog, this.hunt, this.challenges.thisHunt);
     $('summary').classList.remove('hidden');
+    renderBagPhoto(me.bag)
+      .then((url) => {
+        if (url) $('summaryBody').insertAdjacentHTML('afterbegin', `<img class="bag-photo" src="${url}" alt="">`);
+      })
+      .catch(() => {});
   }
 
   // events coming out of the bird simulation (authority only)
