@@ -107,6 +107,74 @@ function finish(c) {
   return bleedTexture(c);
 }
 
+// ---------- photographed foliage atlases (public/models/foliage) ----------
+// Baked by tools/models/bake_foliage.py from CC0 leaf, twig, needle and grass
+// scans: four clusters in a 2x2 grid, each standing on the bottom centre of
+// its cell. Colour and coverage come as two files because a canvas loses the
+// colour under transparent texels; the two are joined here and given the
+// same coverage-preserving mips as the painted textures.
+
+const atlasCache = new Map();
+
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    im.decoding = 'async';
+    im.onload = () => resolve(im);
+    im.onerror = () => reject(new Error('could not load ' + url));
+    im.src = url;
+  });
+}
+
+function pixels(im) {
+  const c = document.createElement('canvas');
+  c.width = im.width;
+  c.height = im.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(im, 0, 0);
+  return ctx.getImageData(0, 0, im.width, im.height).data;
+}
+
+// Resolves to a DataTexture, or null when the files can't be had (the caller
+// falls back to a painted texture).
+export function loadFoliageAtlas(name) {
+  if (atlasCache.has(name)) return atlasCache.get(name);
+  const base = (import.meta.env.BASE_URL || '/') + 'models/foliage/';
+  const p = Promise.all([loadImage(`${base}${name}_c.webp`), loadImage(`${base}${name}_a.png`)])
+    .then(([ci, ai]) => {
+      const W = ci.width;
+      const H = ci.height;
+      const col = pixels(ci);
+      const alp = pixels(ai);
+      const out = new Uint8Array(W * H * 4);
+      for (let y = 0; y < H; y++) {
+        const si = (H - 1 - y) * W * 4; // flip rows: images are top-down
+        const di = y * W * 4;
+        for (let x = 0; x < W * 4; x += 4) {
+          out[di + x] = col[si + x];
+          out[di + x + 1] = col[si + x + 1];
+          out[di + x + 2] = col[si + x + 2];
+          out[di + x + 3] = alp[si + x];
+        }
+      }
+      const t = new THREE.DataTexture(out, W, H, THREE.RGBAFormat);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.mipmaps = coverageMips(out, W, H);
+      t.generateMipmaps = false;
+      t.minFilter = THREE.LinearMipmapLinearFilter;
+      t.magFilter = THREE.LinearFilter;
+      t.anisotropy = 4;
+      t.needsUpdate = true;
+      return t;
+    })
+    .catch((e) => {
+      console.warn('foliage atlas', name, e.message);
+      return null;
+    });
+  atlasCache.set(name, p);
+  return p;
+}
+
 function twig(ctx, x0, y0, x1, y1, w, col) {
   ctx.strokeStyle = col;
   ctx.lineWidth = w;
