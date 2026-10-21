@@ -296,6 +296,8 @@
   "crickets": "amb_crickets.mp3",
   "windTrees": "amb_wind_trees.mp3",
   "windOpen": "amb_wind_open.mp3",
-  "winterWood": "amb_winter_wood.mp3"
+  "winterWood": "amb_winter_wood.mp3",
+  "rainLight": "amb_rain_light.mp3",
+  "rainSteady": "amb_rain_steady.mp3"
  }
 }

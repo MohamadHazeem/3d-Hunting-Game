@@ -4,6 +4,7 @@ import { makeGrassTexture } from './foliageTextures.js';
 import { windUniforms } from './vegetation.js';
 import { tierSettings } from '../gfx/quality.js';
 import { NearGround } from './ground.js';
+import { wetness } from './shading.js';
 
 // Dense tufts of dry grass around the player, rebuilt as you walk.
 
@@ -60,6 +61,7 @@ export class Grass {
       shader.uniforms.uTime = windUniforms.uTime;
       shader.uniforms.uWind = windUniforms.uWind;
       shader.uniforms.uPlayer = uPlayer;
+      shader.uniforms.uWet = wetness;
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;\nuniform vec3 uPlayer;')
         .replace(
@@ -84,11 +86,16 @@ export class Grass {
             transformed.y *= 1.0 - push * 0.45 * k;
           }`
         );
-      // two-sided cards: don't flip the normal on the back face
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <normal_fragment_begin>',
-        '#include <normal_fragment_begin>\n normal = normalize(vNormal); nonPerturbedNormal = normal;'
-      );
+      // two-sided cards: don't flip the normal on the back face. Wet blades
+      // are a little darker and glossier.
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform float uWet;')
+        .replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.rgb *= 1.0 - 0.16 * uWet;')
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.55, uWet * 0.6);')
+        .replace(
+          '#include <normal_fragment_begin>',
+          '#include <normal_fragment_begin>\n normal = normalize(vNormal); nonPerturbedNormal = normal;'
+        );
     };
     mat.customProgramCacheKey = () => 'grass';
     this.mesh = new THREE.InstancedMesh(g, mat, this.capacity);

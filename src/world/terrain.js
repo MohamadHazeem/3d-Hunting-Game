@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Noise2D, clamp, smoothstep, lerp } from '../core/rng.js';
 import { loadTex } from '../core/assets.js';
 import { tierSettings } from '../gfx/quality.js';
-import './shading.js';
+import { wetness } from './shading.js';
 
 // The playable core is a high-resolution heightfield; around it a coarse
 // ring of terrain stretches out to the horizon so you see real mountain
@@ -364,12 +364,16 @@ export class Terrain {
     const mat = new THREE.MeshStandardMaterial({ map: wallD, normalMap: wallN, roughness: 0.95, color: 0xffffff });
     // the photo is of reddish sandstone; Lebanese walls are pale limestone
     mat.onBeforeCompile = (shader) => {
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <map_fragment>',
-        `#include <map_fragment>
-        float wl = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-        diffuseColor.rgb = mix(vec3(wl), diffuseColor.rgb, 0.35) * vec3(1.32, 1.28, 1.2);`
-      );
+      shader.uniforms.uWet = wetness;
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform float uWet;')
+        .replace(
+          '#include <map_fragment>',
+          `#include <map_fragment>
+          float wl = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+          diffuseColor.rgb = mix(vec3(wl), diffuseColor.rgb, 0.35) * vec3(1.32, 1.28, 1.2) * (1.0 - 0.3 * uWet);`
+        )
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.5, uWet * 0.7);');
     };
     mat.customProgramCacheKey = () => 'terrace-wall';
     const N = this.N;
@@ -540,6 +544,7 @@ export class Terrain {
       uGrassTint: { value: new THREE.Vector3(g[0], g[1], g[2]) },
       uSnowLine: { value: hunt.snow ? hunt.terrain.baseHeight + 420 : ({ November: 2500, December: 1850, January: 1600 })[hunt.month] || 99999 },
       uSea: { value: hunt.terrain.seaWest ? 1 : 0 },
+      uWet: wetness,
     };
     mat.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, uniforms);
@@ -554,7 +559,7 @@ export class Terrain {
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>\n${TERRAIN_FRAG_PARS}`)
         .replace('#include <map_fragment>', TERRAIN_FRAG_MAP)
-        .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(0.97, 0.55, wSnow);')
+        .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(mix(0.97, 0.55, wSnow), 0.5, wetK * 0.75);\nroughnessFactor = mix(roughnessFactor, 0.06, puddle);')
         .replace('#include <normal_fragment_maps>', TERRAIN_FRAG_NORMAL);
     };
     mat.customProgramCacheKey = () => (useMask ? 'terrain-core' : 'terrain-outer');
@@ -566,7 +571,7 @@ const TERRAIN_FRAG_PARS = /* glsl */ `
 varying vec3 vWPos;
 varying vec3 vWNor;
 uniform sampler2D tGrass, nGrass, tSoil, nSoil, tForest, nForest, tRock, nRock, tSnow, tWall, nWall, tMask;
-uniform float uCore, uSnowLine, uSea;
+uniform float uCore, uSnowLine, uSea, uWet;
 uniform vec3 uGrassTint;
 
 float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -647,6 +652,12 @@ base = mix(base, cWall, clamp(wWall, 0.0, 1.0));
 base = mix(base, cSnow * 1.05, clamp(wSnow, 0.0, 1.0));
 base = mix(base, vec3(0.76, 0.70, 0.58), wBeach);
 base *= 0.86 + 0.28 * macro;
+// Wet ground: bare earth darkens most, grass and stone less; snow doesn't.
+// Once it is well soaked, water stands in the flat hollows of bare earth.
+float wetK = uWet * (1.0 - wSnow);
+float puddle = wetK * smoothstep(0.5, 0.85, uWet) * wts.y * (1.0 - smoothstep(0.015, 0.06, slope))
+  * smoothstep(0.58, 0.7, vnoise(vWPos.xz * 0.45) * 0.7 + macro * 0.3);
+base *= 1.0 - wetK * (0.2 + 0.25 * wts.y) - 0.3 * puddle;
 diffuseColor.rgb *= base;
 `;
 
@@ -663,6 +674,7 @@ const TERRAIN_FRAG_NORMAL = /* glsl */ `
   pn = mix(pn, rp * 1.2, clamp(wRock, 0.0, 1.0));
   pn = mix(pn, wp * 1.6, clamp(wWall, 0.0, 1.0));
   pn *= 1.0 - wSnow * 0.8;
+  pn *= 1.0 - puddle; // standing water is flat
   vec3 wn = normalize(gN + pn);
   normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz);
 }

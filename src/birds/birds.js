@@ -29,6 +29,7 @@ const _v = new THREE.Vector3();
 const _w = new THREE.Vector3();
 const _eye = new THREE.Vector3();
 const _d2 = new THREE.Vector2();
+const FINE_DAY = { cloud: 0, rain: 0, snow: 0, fog: 0 };
 
 class Bird {
   constructor(id, spId, scene) {
@@ -112,6 +113,32 @@ export class BirdManager {
     this.passageHeading = Math.PI; // migrants head south in autumn (compass bearing)
     this.crouched = new Map(); // player id -> was crouching last frame
     this.stoodAt = new Map(); // player id -> when they last stood up
+    this.weather = null; // the day's Weather (rain, snow, fog 0..1), set by the Game
+  }
+
+  // ---------------- weather ----------------
+  // Small multipliers, all 1 on a fine day.
+
+  get wx() {
+    return this.weather || FINE_DAY;
+  }
+
+  // Migrants sit out a shower in cover rather than fly through it: heavy rain
+  // cuts the passage to about a third.
+  get rainPassage() {
+    return 1 - 0.65 * this.wx.rain;
+  }
+
+  // A wet quail or woodcock clamps down and lets you walk much closer before
+  // it goes (flushing soaked is costly).
+  get rainSitTight() {
+    return 1 - 0.35 * this.wx.rain;
+  }
+
+  // Fog (and to a lesser degree heavy rain) hides a hunter: thick fog cuts how
+  // far a flock or a perched bird can pick him out to about 30%.
+  get fogSight() {
+    return (1 - 0.7 * this.wx.fog) * (1 - 0.2 * this.wx.rain);
   }
 
   emit(type, data) {
@@ -218,8 +245,15 @@ export class BirdManager {
     const start = new THREE.Vector2(p.x, p.z).addScaledVector(dir, startD).addScaledVector(side, lateral + this.rnd.float(-30, 30));
     const pass = new THREE.Vector2(p.x, p.z).addScaledVector(side, lateral);
     const end = new THREE.Vector2(p.x, p.z).addScaledVector(dir, -startD - 100).addScaledVector(side, lateral + this.rnd.float(-60, 60));
-    const count = this.rnd.int(...(sp.flock || [1, 1]));
-    const alt = this.rnd.float(...sp.flight.alt);
+    let count = this.rnd.int(...(sp.flock || [1, 1]));
+    let alt = this.rnd.float(...sp.flight.alt);
+    // Snow buries the food on the tops and pushes fieldfare down in big,
+    // hungry flocks that skim low over the junipers looking for berries.
+    const snow = this.wx.snow;
+    if (spId === 'fieldfare' && snow > 0) {
+      count = Math.round(count * (1 + 0.9 * snow));
+      alt = Math.max(sp.flight.alt[0] * 0.6, alt * (1 - 0.45 * snow));
+    }
     const group = this.makeGroup(spId, alt);
     group.path = [new THREE.Vector3(pass.x, 0, pass.y), new THREE.Vector3(end.x, 0, end.y)];
     group.dir.set(-dir.x, -dir.y);
@@ -283,7 +317,7 @@ export class BirdManager {
     const dawn = Math.exp(-(((hour - 7.2) / 1.6) ** 2));
     const dusk = Math.exp(-(((hour - 16.3) / 0.9) ** 2)) * 0.6;
     const base = { fieldfare: 2.2, chaffinch: 2.0, turtleDove: 1.6, woodpigeon: 1.2 }[spId] || 3.0;
-    return base * w * (0.35 + dawn + dusk) * this.passage;
+    return base * w * (0.35 + dawn + dusk) * this.passage * this.rainPassage;
   }
 
   // ---------------- seeing the hunter ----------------
@@ -343,7 +377,7 @@ export class BirdManager {
       const dh = Math.hypot(dx, dz) || 1;
       const d = Math.hypot(dh, p.pos.y - g.c.y);
       if (d > sp.sight * 1.3) continue;
-      let range = sp.sight;
+      let range = sp.sight * this.fogSight;
       range *= p.speed > 0.6 ? 1 : 0.5;
       if (p.speed > 3.5) range *= 1.25;
       if (p.crouch) range *= 0.7;
@@ -568,8 +602,8 @@ export class BirdManager {
     for (const p of players) {
       const d = Math.hypot(p.pos.x - b.pos.x, p.pos.z - b.pos.z);
       nearest = Math.min(nearest, d);
-      // birds are wilder on a windy day
-      const k = (p.crouch ? 0.75 : 1) * (p.speed < 0.3 ? 0.85 : 1) * (1 + 0.3 * Math.min(1, this.wind.length() / 9));
+      // birds are wilder on a windy day, sit tighter in the rain
+      const k = (p.crouch ? 0.75 : 1) * (p.speed < 0.3 ? 0.85 : 1) * (1 + 0.3 * Math.min(1, this.wind.length() / 9)) * this.rainSitTight;
       if (d < b.flushDist * k) {
         this.flush(b, p.pos);
         return;
@@ -1003,8 +1037,8 @@ export class BirdManager {
       k *= p.speed < 0.3 ? 0.55 : p.speed < 1.8 ? 0.8 : p.speed > 4 ? 1.25 : 1;
       if (this.time - (this.stoodAt.get(p.id) ?? -99) < 0.8) k = Math.max(k, b.alarm * 1.2);
       if (d > k) continue;
-      // out of sight it only hears footsteps close by
-      if (d > k * 0.45 && !this.lineOfSight(b.pos, eye, b.perchTree)) continue;
+      // out of sight (or lost in the fog) it only hears footsteps close by
+      if (d > k * 0.45 && (d > k * this.fogSight || !this.lineOfSight(b.pos, eye, b.perchTree))) continue;
       return p.pos;
     }
     return null;

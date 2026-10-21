@@ -3,6 +3,7 @@ import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometr
 import { Random, hash2, smoothstep } from '../core/rng.js';
 import { CORE_SIZE } from './terrain.js';
 import { loadTex } from '../core/assets.js';
+import { wetness } from './shading.js';
 
 // Limestone: boulders and outcrops on the slopes, field stones and the
 // cleared-stone heaps that sit at the edges of Lebanese fields. Drawn with
@@ -44,11 +45,12 @@ export function stoneMaterial(diff, scale, tint = 0xffffff, roughness = 0.92, ga
   const m = new THREE.MeshStandardMaterial({ color: tint, roughness, metalness: 0 });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.tStone = { value: diff };
+    shader.uniforms.uWet = wetness;
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vRockP;\nvarying vec3 vRockN;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvRockP = position;\nvRockN = normal;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform sampler2D tStone;\nvarying vec3 vRockP;\nvarying vec3 vRockN;')
+      .replace('#include <common>', '#include <common>\nuniform sampler2D tStone;\nuniform float uWet;\nvarying vec3 vRockP;\nvarying vec3 vRockN;')
       .replace(
         '#include <map_fragment>',
         `{
@@ -59,8 +61,11 @@ export function stoneMaterial(diff, scale, tint = 0xffffff, roughness = 0.92, ga
           // weathered tops are paler, undersides darker
           l *= 0.8 + 0.32 * smoothstep(-0.6, 0.8, normalize(vRockN).y);
           diffuseColor.rgb *= clamp(l * ${gain.toFixed(2)}, 0.0, 1.6);
+          // wet limestone goes darker, most on its rain-washed top
+          diffuseColor.rgb *= 1.0 - uWet * (0.18 + 0.14 * smoothstep(-0.2, 0.8, normalize(vRockN).y));
         }`
-      );
+      )
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.42, uWet * 0.75);');
   };
   m.customProgramCacheKey = () => 'stone' + scale + ':' + gain;
   return m;

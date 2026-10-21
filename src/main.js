@@ -7,6 +7,7 @@ import { Wind } from './core/wind.js';
 import { Grass } from './world/grass.js';
 import { Structures } from './world/structures.js';
 import { Atmosphere } from './world/sky.js';
+import { Weather } from './world/weather.js';
 import { BirdManager } from './birds/birds.js';
 import { Player } from './player/player.js';
 import { Shotgun, CHOKES, CHOKE_TYPES, SHOT_SIZES, fitChokes } from './player/shotgun.js';
@@ -343,6 +344,9 @@ class Game {
     if (w && w.wind) Object.assign(this.wind, { base: w.wind.base, from: w.wind.from });
     this.setupPassage(w && w.passage);
     this.birds.wind = this.wind.vec;
+    // the day's weather (a joiner follows the host's): sky, light, rain or snow, sound and birds read it
+    this.weather = new Weather(this.hunt, w && w.weather);
+    this.atmo.weather = this.birds.weather = audio.weather = this.weather;
     this.world = { terrain, veg, structures, birds: this.birds };
 
     this.input = new Input(canvas);
@@ -478,6 +482,7 @@ class Game {
     else if (flyers && this.passage.kind === 'quiet') this.hud.message(t('quietDay'), 'info');
     const wn = this.wind.name;
     this.hud.message(t('wind', { dir: wn.en, speed: num(this.wind.speed.toFixed(0)), ar: `<span class="ar">${wn.ar}</span>` }), 'info');
+    this.hud.message(isAr() ? `<span class="ar">${this.weather.ar}</span>` : `${this.weather.en} · <span class="ar">${this.weather.ar}</span>`, 'info');
     this.companion.onStart(this.atmo.hour);
     setTimeout(() => this.hints.show('start'), 5000);
     if (this.mode === 'host') this.hud.message(t('shareCode', { code: `<b style="color:#e2a23b;letter-spacing:.2em">${this.net.code}</b>` }), 'info');
@@ -537,7 +542,7 @@ class Game {
     if (net.isHost) {
       net.on('hello', (m, from) => {
         this.addPlayer(from, String(m.name || 'Hunter').slice(0, 16));
-        net.send({ t: 'welcome', you: from, hunt: this.hunt.id, hour: this.atmo.hour, roster: this.roster(), wind: { base: this.wind.base, from: this.wind.from }, passage: this.passage }, from);
+        net.send({ t: 'welcome', you: from, hunt: this.hunt.id, hour: this.atmo.hour, roster: this.roster(), wind: { base: this.wind.base, from: this.wind.from }, passage: this.passage, weather: this.weather.netState() }, from);
         net.broadcast({ t: 'roster', list: this.roster() });
         net.broadcast(this.scoresMsg());
         this.hud.message(t('joined', { name: esc(m.name) }), 'info');
@@ -620,7 +625,10 @@ class Game {
         this.hud.message(t('nightfall'), 'warn');
         setTimeout(() => this.endHunt(), 3500);
       });
-      net.on('hour', (m) => (this.atmo.hour = m.hour));
+      net.on('hour', (m) => {
+        this.atmo.hour = m.hour;
+        this.weather.applyNet(m.weather);
+      });
       net.on('hostLost', () => {
         this.hud.message(t('hostEnded'), 'warn');
         this.hud.pause(true, 'Connection to host lost');
@@ -660,7 +668,7 @@ class Game {
       net.broadcast({ t: 'players', list });
       net.broadcast({ t: 'birds', ts: performance.now() / 1000, list: this.birds.snapshot() });
       this.hourSync = (this.hourSync || 0) + 1;
-      if (this.hourSync % 50 === 0) net.broadcast({ t: 'hour', hour: this.atmo.hour });
+      if (this.hourSync % 50 === 0) net.broadcast({ t: 'hour', hour: this.atmo.hour, weather: this.weather.netState() });
     } else {
       net.send({ t: 'state', ...state });
     }
@@ -778,7 +786,7 @@ class Game {
     const evening = Math.max(this.atmo.hour, this.atmo.month.set - 2.2);
     if (evening <= this.atmo.hour + 0.25) return;
     this.atmo.hour = evening;
-    if (this.net) this.net.broadcast({ t: 'hour', hour: this.atmo.hour });
+    if (this.net) this.net.broadcast({ t: 'hour', hour: this.atmo.hour, weather: this.weather.netState() });
     this.hud.message(t('rested'), 'info');
     this.input.lock();
   }
@@ -1065,6 +1073,7 @@ class Game {
         audio.distantShot();
       }
       this.wind.update(sim);
+      this.weather.update(sim, this.atmo.hour);
       this.companion.update(sim, this);
       if (this.clock.elapsedTime > 70) this.hints.show('binocs');
       if (this.birds.groups.some((g) => g.announced)) this.hints.show('flock');

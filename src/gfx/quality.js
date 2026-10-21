@@ -18,31 +18,36 @@ export const QUALITY_OPTIONS = [
 ];
 
 // pixelRatio is the most a tier renders at (capped by the screen's own ratio);
-// dynamic resolution scales below it when frames get slow.
+// dynamic resolution scales below it when frames get slow. precip: most rain
+// drops or snowflakes around the hunter; splashes: raindrops hitting the ground.
 export const TIERS = {
   low: {
     pixelRatio: 1, minScale: 0.6,
     post: false, msaa: 0, bloom: false, ao: false, grade: false,
     shadows: false, shadowMap: 0, shadowExt: 0, farShadowMap: 0,
     detail: 0.5, mist: true, leaves: true,
+    precip: 1400, splashes: 0,
   },
   medium: {
     pixelRatio: 1.5, minScale: 0.55,
     post: true, msaa: 4, bloom: true, ao: false, grade: true,
     shadows: true, shadowMap: 2048, shadowExt: 55, farShadowMap: 2048,
     detail: 0.8, mist: true, leaves: true,
+    precip: 3200, splashes: 0,
   },
   high: {
     pixelRatio: 2, minScale: 0.5,
     post: true, msaa: 4, bloom: true, ao: 'half', aoSamples: 8, grade: true,
     shadows: true, shadowMap: 4096, shadowExt: 70, farShadowMap: 4096,
     detail: 1, mist: true, leaves: true,
+    precip: 5500, splashes: 220,
   },
   ultra: {
     pixelRatio: 2, minScale: 0.5,
     post: true, msaa: 4, bloom: true, ao: 'half', aoSamples: 14, grade: true,
     shadows: true, shadowMap: 4096, shadowExt: 95, farShadowMap: 4096,
     detail: 1.25, mist: true, leaves: true,
+    precip: 8000, splashes: 360,
   },
 };
 

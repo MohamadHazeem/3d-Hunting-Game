@@ -20,6 +20,13 @@ export const sunDirection = { x: 0, y: 1, z: 0 };
 // a number would be copied per material, so time is kept in an object too
 export const mistTime = { x: 0, y: 0 };
 
+// How wet the ground is (0..1, from the weather). Materials that get wet
+// (terrain, stone, grass) add this very uniform object to their shaders in
+// onBeforeCompile, so one write a frame reaches them all. Water fills the
+// pores of soil and stone, so less light scatters back out (darker) and the
+// surface picks up a sheen (smoother).
+export const wetness = { value: 0 };
+
 const extra = {
   uMist: { value: mistParams },
   uMistColor: { value: mistColor },

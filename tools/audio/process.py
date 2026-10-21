@@ -194,7 +194,10 @@ def main():
 
     # -------- ambience beds: seamless loops, matched loudness
     BEDS = {"dawn": "amb_dawn", "cicadas": "amb_cicadas", "crickets": "amb_crickets",
-            "windTrees": "amb_wind_trees", "windOpen": "amb_wind_open", "winterWood": "amb_winter_wood"}
+            "windTrees": "amb_wind_trees", "windOpen": "amb_wind_open", "winterWood": "amb_winter_wood",
+            "rainLight": "amb_rain_light", "rainSteady": "amb_rain_steady"}
+    # sparse beds (a few sounds over silence) sit lower, or their peaks would be crushed
+    BED_RMS = {"winterWood": -30, "rainLight": -32}
     for name, f in BEDS.items():
         p = os.path.join(el, f + ".mp3")
         if not os.path.exists(p):
@@ -204,7 +207,7 @@ def main():
         y = x[:, :-cf].copy()
         k = np.linspace(0, 1, cf)
         y[:, :cf] = x[:, :cf] * np.sqrt(k) + x[:, -cf:] * np.sqrt(1 - k)
-        y = rms_norm(y, -24 if name != "winterWood" else -30)
+        y = rms_norm(y, BED_RMS.get(name, -24))
         save(y, os.path.join(out, f + ".mp3"), "128k")
         beds[name] = f + ".mp3"
 
