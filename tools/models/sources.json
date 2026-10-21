@@ -1,0 +1,25 @@
+{
+  "about": "CC0 source assets from Poly Haven (https://polyhaven.com, no account needed). fetch.mjs downloads them; bake_foliage.py and build_models.mjs turn them into public/models.",
+  "textures": [
+    { "id": "fir_tree_01", "res": "2k", "maps": ["twig_diff", "twig_alpha"], "use": "fir, cedar and juniper foliage sprays" },
+    { "id": "fir_tree_01", "res": "1k", "maps": ["bark_diff", "bark_nor_gl"], "fmt": "jpg", "use": "fir and cedar bark" },
+    { "id": "pine_tree_01", "res": "2k", "maps": ["twig_diff", "twig_alpha"], "use": "stone pine needle tufts" },
+    { "id": "wild_rooibos_bush", "res": "2k", "maps": ["Diffuse", "Alpha"], "use": "needle fascicles for pine tufts, burnet shrubs" },
+    { "id": "searsia_lucida", "res": "2k", "maps": ["Diffuse", "Alpha"], "use": "olive and oak leaves" },
+    { "id": "searsia_burchellii", "res": "2k", "maps": ["Diffuse", "Alpha"], "use": "twigs that carry the leaf clusters" },
+    { "id": "island_tree_02", "res": "2k", "maps": ["leaves_diff", "leaves_alpha"], "use": "glossy oak leaves" },
+    { "id": "grass_medium_01", "res": "2k", "maps": ["Diffuse", "dry_diff", "Alpha"], "use": "grass clumps" },
+    { "id": "grass_medium_02", "res": "2k", "maps": ["Diffuse", "dry_diff", "Alpha"], "use": "grass blades" }
+  ],
+  "models": [
+    { "id": "boulder_01", "res": "1k", "use": "big boulder" },
+    { "id": "namaqualand_boulder_02", "res": "1k", "use": "big boulder" },
+    { "id": "namaqualand_boulder_05", "res": "1k", "use": "big boulder" },
+    { "id": "rock_07", "res": "1k", "use": "pebbles and field stones" },
+    { "id": "rock_09", "res": "1k", "use": "pebbles and field stones" },
+    { "id": "rock_moss_set_01", "res": "1k", "use": "boulders, field stones and stone heaps" },
+    { "id": "dry_branches_medium_01", "res": "1k", "use": "fallen branches round the hunter" },
+    { "id": "tree_stump_01", "res": "1k", "use": "stumps in the woods" },
+    { "id": "dead_tree_trunk", "res": "1k", "use": "fallen trunks in the woods" }
+  ]
+}
