@@ -1,0 +1,39 @@
+/* Spotting marks, flock arrows, visibility/noise meters, caller and the
+   objective line (src/ui/gameplay.js). */
+
+.gp { position: absolute; inset: 0; pointer-events: none; }
+.gp .hidden { display: none; }
+
+.gp-meters { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); display: flex; gap: 18px; font-size: 11px; color: var(--ink); letter-spacing: 0.04em; background: rgba(0, 0, 0, 0.32); padding: 3px 12px; border-radius: 11px; }
+.gp-meter { display: flex; align-items: center; gap: 6px; }
+.gp-ic { display: inline-flex; width: 15px; height: 15px; color: var(--ink); }
+.gp-ic svg { width: 100%; height: 100%; display: block; }
+.gp-meter i { display: block; width: 76px; height: 6px; background: rgba(0, 0, 0, 0.55); border-radius: 3px; overflow: hidden; box-shadow: 0 0 0 1px rgba(243, 234, 216, 0.25); }
+.gp-meter b { display: block; height: 100%; width: 0; background: #8fd16a; transition: width 0.25s, background 0.25s; }
+
+.gp-objective { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); max-width: min(760px, 88vw); width: max-content; text-align: center; font-size: 13.5px; line-height: 1.4; color: var(--ink); background: rgba(0, 0, 0, 0.38); padding: 4px 12px; border-radius: 6px; unicode-bidi: plaintext; }
+
+.gp-caller { position: absolute; right: 24px; bottom: 96px; font-size: 12.5px; color: var(--ink); text-align: right; unicode-bidi: plaintext; }
+.gp-caller b { background: rgba(255, 255, 255, 0.2); padding: 0 6px; border-radius: 4px; margin: 0 2px; }
+.gp-caller.wait { color: var(--dim); }
+
+.gp-layer { position: absolute; inset: 0; overflow: hidden; }
+.gp-mark { position: absolute; left: 0; top: 0; font-size: 12px; font-weight: 600; white-space: nowrap; padding: 1px 7px; border-radius: 4px; background: rgba(8, 14, 20, 0.5); color: #bfe9ff; unicode-bidi: plaintext; will-change: transform; }
+.gp-mark::after { content: ''; position: absolute; left: 50%; bottom: -9px; margin-left: -5px; border: 5px solid transparent; border-top-color: currentColor; }
+.gp-mark.prot { color: #ffb4a3; }
+.gp-mark.ping { color: #ffe1a6; }
+.gp-mark.sign { color: #c9f0a0; font-weight: 500; }
+
+.gp-arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; color: #ffe1a6; will-change: transform; }
+.gp-tri { position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.6)); }
+.gp-tri svg { width: 100%; height: 100%; display: block; }
+.gp-arrow span { position: absolute; left: 0; top: 16px; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: 600; background: rgba(0, 0, 0, 0.4); padding: 1px 7px; border-radius: 4px; unicode-bidi: plaintext; }
+
+.lang-ar .gp-objective, .lang-ar .gp-caller { direction: rtl; font-family: Cairo, Inter, sans-serif; }
+.lang-ar .gp-mark, .lang-ar .gp-arrow span { font-family: Cairo, Inter, sans-serif; }
+
+@media (max-width: 700px) {
+  .gp-meters { top: 54px; gap: 12px; }
+  .gp-meter i { width: 50px; }
+  .gp-objective { font-size: 12px; top: 74px; }
+}

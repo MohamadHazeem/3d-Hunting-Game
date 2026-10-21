@@ -8,6 +8,35 @@ import { SPECIES } from '../config/species.js';
 
 const cache = new Map();
 
+// How birds in the field read against sky and ground (shared by every field
+// bird's shader): x = how much of the haze/mist they shrug off, y = how dark
+// they go against the sky (a bird overhead is a backlit silhouette), z = a
+// faint rim of light round the edge that lifts them off foliage and stubble.
+export const birdLook = { value: new THREE.Vector3(0.6, 1, 1) };
+
+function fieldLook(mat) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uBirdLook = birdLook;
+    sh.fragmentShader = sh.fragmentShader
+      .replace('void main() {', 'uniform vec3 uBirdLook;\nvoid main() {')
+      .replace(
+        '#include <fog_fragment>',
+        /* glsl */ `vec3 lbhPreFog = gl_FragColor.rgb;
+#include <fog_fragment>
+        gl_FragColor.rgb = mix( gl_FragColor.rgb, lbhPreFog, uBirdLook.x );
+        {
+          // camera-to-fragment ray in world space (the view matrix is rigid)
+          vec3 lbhRay = normalize( ( vec4( - vViewPosition, 0.0 ) * viewMatrix ).xyz );
+          float lbhSky = smoothstep( 0.03, 0.3, lbhRay.y ) * uBirdLook.y;
+          gl_FragColor.rgb *= 1.0 - 0.55 * lbhSky;
+          float lbhRim = pow( 1.0 - abs( dot( normal, normalize( vViewPosition ) ) ), 3.0 );
+          gl_FragColor.rgb += lbhRim * 0.12 * uBirdLook.z * ( 1.0 - lbhSky ) * vec3( 1.0, 0.94, 0.82 );
+        }`
+      );
+  };
+  mat.customProgramCacheKey = () => 'lbhFieldBird';
+}
+
 function plumageTexture(sp) {
   const W = 256;
   const H = 128;
@@ -220,7 +249,7 @@ function wingShape(span, chord, isHand, sp) {
   return geo;
 }
 
-function build(speciesId) {
+function build(speciesId, field) {
   const sp = SPECIES[speciesId];
   const b = sp.body;
   const col = sp.colors;
@@ -264,6 +293,7 @@ function build(speciesId) {
   const legGeo = new THREE.CylinderGeometry(0.011, 0.008, legLen, 4);
   legGeo.translate(0, -legLen / 2, 0);
   const legMat = new THREE.MeshStandardMaterial({ color: sp.legColor || '#a08070', roughness: 0.7 });
+  if (field) for (const m of [bodyMat, wingMat, headMat, billMat, tailMat, eyeMat, legMat]) fieldLook(m);
 
   return {
     sp, bodyMat, wingMat, headMat, billMat, tailMat, eyeMat, legMat,
@@ -272,9 +302,12 @@ function build(speciesId) {
   };
 }
 
-export function createBirdMesh(speciesId) {
-  if (!cache.has(speciesId)) cache.set(speciesId, build(speciesId));
-  const K = cache.get(speciesId);
+// opts.scale: size multiplier on top of the real size (the "Bird size"
+// setting); opts.field: birds out in the hunting ground get the readable look.
+export function createBirdMesh(speciesId, opts = {}) {
+  const key = opts.field ? speciesId + '|field' : speciesId;
+  if (!cache.has(key)) cache.set(key, build(speciesId, !!opts.field));
+  const K = cache.get(key);
   const sp = K.sp;
   const b = sp.body;
   const root = new THREE.Group();
@@ -353,7 +386,7 @@ export function createBirdMesh(speciesId) {
       o.receiveShadow = false;
     }
   });
-  root.scale.setScalar(sp.length);
+  root.scale.setScalar(sp.length * (opts.scale || 1));
   return { root, body, head, tail, wings, legs };
 }
 

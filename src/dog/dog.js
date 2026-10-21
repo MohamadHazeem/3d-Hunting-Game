@@ -435,7 +435,7 @@ export class Dog {
 
   pickUp(b) {
     b.carried = true;
-    this.carryMesh = createBirdMesh(b.spId);
+    this.carryMesh = createBirdMesh(b.spId, { scale: b.size || 1 });
     poseWings(this.carryMesh, 'limp', 0, 0.3, 0);
     this.carryMesh.root.rotation.set(0, Math.PI / 2, Math.PI / 2);
     this.m.mouthPoint.add(this.carryMesh.root);
