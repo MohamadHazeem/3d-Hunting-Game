@@ -23,6 +23,8 @@ export class Terrain {
     this.noise = new Noise2D(hunt.seed);
     this.noise2 = new Noise2D(hunt.seed * 7 + 3);
     this.N = { low: 360, medium: 560, high: 760, ultra: 880 }[quality] || 760;
+    // far ring resolution: finer on strong GPUs so distant ridges aren't faceted
+    this.outerRes = { low: [240, 360], medium: [280, 480], high: [320, 640], ultra: [360, 800] }[quality] || [240, 360];
     this.castShadows = tierSettings(quality).shadows;
     this.step = CORE_SIZE / this.N;
     this.heights = null;
@@ -314,8 +316,7 @@ export class Terrain {
     }
 
     // Outer ring (radial spacing grows with distance)
-    const RN = 240;
-    const AN = 360;
+    const [RN, AN] = this.outerRes;
     const opos = [];
     const oidx = [];
     for (let r = 0; r <= RN; r++) {
