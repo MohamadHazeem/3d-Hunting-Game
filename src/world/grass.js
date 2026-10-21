@@ -1,12 +1,14 @@
 import * as THREE from 'three';
-import { hash2 } from '../core/rng.js';
-import { makeGrassTexture } from './foliageTextures.js';
-import { windUniforms } from './vegetation.js';
+import { hash2, smoothstep } from '../core/rng.js';
+import { loadFoliageAtlas, makeGrassTexture } from './foliageTextures.js';
+import { windUniforms, translucentLights } from './foliage.js';
 import { tierSettings } from '../gfx/quality.js';
 import { NearGround } from './ground.js';
 import { wetness } from './shading.js';
 
-// Dense tufts of dry grass around the player, rebuilt as you walk.
+// Dense tufts of grass around the player, rebuilt as you walk. The tufts are
+// photographed grass (public/models/foliage/grass): fanned blades and whole
+// clumps, dry or green, picked per tuft by how dry the ground is.
 
 const CELL = 4;
 // where the hunter is standing, so the tufts can bend away underfoot
@@ -18,10 +20,13 @@ export class Grass {
     this.terrain = terrain;
     this.quality = quality;
     this.radius = { low: 28, medium: 42, high: 56, ultra: 70 }[quality] ?? 56;
-    this.perCell = { low: 10, medium: 16, high: 22, ultra: 26 }[quality] ?? 22;
-    this.capacity = Math.ceil((Math.PI * this.radius * this.radius) / (CELL * CELL) * this.perCell * (hunt.terrain.kind === 'plain' ? 1.5 : 1)) + 200;
+    this.perCell = { low: 12, medium: 20, high: 28, ultra: 34 }[quality] ?? 28;
+    // extra tufts right round the hunter's feet, where the ground is seen up close
+    this.nearExtra = { low: 0.8, medium: 1.3, high: 1.6, ultra: 1.8 }[quality] ?? 1.6;
+    const plain = hunt.terrain.kind === 'plain' ? 1.5 : 1;
+    this.capacity = Math.ceil(((Math.PI * this.radius * this.radius) / (CELL * CELL)) * this.perCell * plain + ((Math.PI * 18 * 18) / (CELL * CELL)) * this.perCell * this.nearExtra * plain) + 200;
     this.center = new THREE.Vector2(1e9, 1e9);
-    this.height = hunt.terrain.kind === 'plain' ? 0.38 : 0.5;
+    this.height = hunt.terrain.kind === 'plain' ? 0.42 : 0.55;
   }
 
   build(scene) {
@@ -33,8 +38,8 @@ export class Grass {
     const idx = [];
     for (let p = 0; p < planes; p++) {
       const a = (p / planes) * Math.PI;
-      const cx = Math.cos(a) * 0.4;
-      const cz = Math.sin(a) * 0.4;
+      const cx = Math.cos(a) * 0.5;
+      const cz = Math.sin(a) * 0.5;
       const base = pos.length / 3;
       pos.push(-cx, 0, -cz, cx, 0, cz, cx, 1, cz, -cx, 1, -cz);
       uv.push(0, 0, 1, 0, 1, 1, 0, 1);
@@ -45,16 +50,31 @@ export class Grass {
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
     g.setIndex(idx);
+    this.cells = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity), 1);
+    g.setAttribute('aCell', this.cells);
 
+    // painted stand-in until (or if) the photographed atlas arrives
     const tint = this.hunt.ground.grass;
-    const tex = makeGrassTexture(tint, this.hunt.ground.dryness, this.hunt.seed);
+    const painted = makeGrassTexture(tint, this.hunt.ground.dryness, this.hunt.seed);
     const mat = new THREE.MeshStandardMaterial({
-      map: tex,
+      map: painted,
       alphaTest: 0.5,
       alphaToCoverage: tierSettings(this.quality).msaa > 0,
       side: THREE.DoubleSide,
-      roughness: 0.9,
+      roughness: 0.85,
       color: new THREE.Color(tint[0] * 1.15, tint[1] * 1.15, tint[2] * 1.15),
+    });
+    this.atlas = false;
+    const uAtlas = { value: 0 };
+    loadFoliageAtlas('grass').then((tex) => {
+      if (!tex) return;
+      mat.map = tex;
+      // the photo carries its own colour: only a soft pull towards the ground's tint
+      const k = 0.6;
+      mat.color.setRGB(1 - k + k * tint[0] * 1.3, 1 - k + k * tint[1] * 1.3, 1 - k + k * tint[2] * 1.3);
+      uAtlas.value = 1;
+      this.atlas = true;
+      mat.needsUpdate = true;
     });
     const radius = this.radius;
     mat.onBeforeCompile = (shader) => {
@@ -62,8 +82,15 @@ export class Grass {
       shader.uniforms.uWind = windUniforms.uWind;
       shader.uniforms.uPlayer = uPlayer;
       shader.uniforms.uWet = wetness;
+      shader.uniforms.uAtlas = uAtlas;
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;\nuniform vec3 uPlayer;')
+        .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;\nuniform vec3 uPlayer;\nuniform float uAtlas;\nattribute float aCell;')
+        .replace(
+          '#include <uv_vertex>',
+          `#include <uv_vertex>
+          // one of the atlas' four tufts (2x2, top row first)
+          if (uAtlas > 0.5) vMapUv = vMapUv * 0.49 + vec2(mod(aCell, 2.0) * 0.5 + 0.005, aCell < 1.5 ? 0.502 : 0.002);`
+        )
         .replace(
           '#include <begin_vertex>',
           `#include <begin_vertex>
@@ -87,7 +114,7 @@ export class Grass {
           }`
         );
       // two-sided cards: don't flip the normal on the back face. Wet blades
-      // are a little darker and glossier.
+      // are a little darker and glossier; thin blades glow against the sun.
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform float uWet;')
         .replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.rgb *= 1.0 - 0.16 * uWet;')
@@ -95,7 +122,8 @@ export class Grass {
         .replace(
           '#include <normal_fragment_begin>',
           '#include <normal_fragment_begin>\n normal = normalize(vNormal); nonPerturbedNormal = normal;'
-        );
+        )
+        .replace('#include <lights_physical_pars_fragment>', translucentLights(0.35));
     };
     mat.customProgramCacheKey = () => 'grass';
     this.mesh = new THREE.InstancedMesh(g, mat, this.capacity);
@@ -112,7 +140,8 @@ export class Grass {
   update(playerPos) {
     uPlayer.value.copy(playerPos);
     if (this.near) this.near.update(playerPos);
-    if (this.center.distanceTo(new THREE.Vector2(playerPos.x, playerPos.z)) < 6) return;
+    if (this.center.distanceTo(new THREE.Vector2(playerPos.x, playerPos.z)) < 6 && this.builtAtlas === this.atlas) return;
+    this.builtAtlas = this.atlas;
     this.center.set(playerPos.x, playerPos.z);
     const R = this.radius;
     const m4 = new THREE.Matrix4();
@@ -122,6 +151,8 @@ export class Grass {
     const nrm = new THREE.Vector3();
     const up = new THREE.Vector3(0, 1, 0);
     const color = new THREE.Color();
+    const dry = this.hunt.ground.dryness;
+    const plain = this.terrain.kind === 'plain';
     let n = 0;
     const c0x = Math.floor((playerPos.x - R) / CELL);
     const c1x = Math.floor((playerPos.x + R) / CELL);
@@ -132,11 +163,15 @@ export class Grass {
       for (let cx = c0x; cx <= c1x; cx++) {
         const mx = cx * CELL + CELL / 2;
         const mz = cz * CELL + CELL / 2;
-        if ((mx - playerPos.x) ** 2 + (mz - playerPos.z) ** 2 > R * R) continue;
+        const d2 = (mx - playerPos.x) ** 2 + (mz - playerPos.z) ** 2;
+        if (d2 > R * R) continue;
         const m = this.terrain.maskAt(mx, mz);
-        let dens = (1 - m.forest * 0.75) * (1 - m.snow) * (this.terrain.kind === 'plain' ? 1 : 1 - m.field * 0.55);
+        let dens = (1 - m.forest * 0.75) * (1 - m.snow) * (plain ? 1 : 1 - m.field * 0.55);
         if (this.terrain.road(mx, mz) < 1.8) dens *= 0.15;
-        const count = Math.round(this.perCell * dens * (this.terrain.kind === 'plain' ? 1.5 : 1));
+        // patchy: thick drifts and thin, bare stretches
+        dens *= 0.55 + 0.9 * smoothstep(0.2, 0.8, hash2(Math.floor(cx / 3), Math.floor(cz / 3), seed + 77));
+        const near = 1 + this.nearExtra * (1 - smoothstep(8, 18, Math.sqrt(d2)));
+        const count = Math.round(this.perCell * dens * near * (plain ? 1.5 : 1));
         for (let i = 0; i < count && n < this.capacity; i++) {
           const x = cx * CELL + hash2(cx, cz, i * 3 + seed) * CELL;
           const z = cz * CELL + hash2(cx, cz, i * 3 + 1 + seed) * CELL;
@@ -144,13 +179,22 @@ export class Grass {
           this.terrain.normal(x, z, nrm);
           if (nrm.y < 0.72) continue;
           const r = hash2(cx, cz, i * 3 + 2 + seed);
+          const r2 = hash2(cx, cz, i * 7 + 5 + seed);
+          // dry or green tuft, fanned blades or a whole clump
+          const isDry = r2 < 0.15 + 0.8 * dry;
+          const clump = hash2(cx, cz, i * 5 + 9 + seed) < 0.6;
+          const cell = (isDry ? 0 : 2) + (clump ? 1 : 0);
+          this.cells.array[n] = cell;
           q.setFromAxisAngle(up, r * Math.PI * 2);
-          const hs = this.height * (0.6 + r * 0.8);
-          s.set(0.7 + r * 0.6, hs, 0.7 + r * 0.6);
+          const hs = this.height * (0.6 + r * 0.8) * (clump ? 1.25 : 1);
+          const ws = (0.7 + r * 0.6) * (clump ? 1.5 : 1) * (this.atlas ? 1 : 0.8);
+          s.set(ws, hs, ws);
           p.set(x, y - 0.03, z);
           m4.compose(p, q, s);
           this.mesh.setMatrixAt(n, m4);
-          color.setHSL(0.1 + r * 0.04, 0.2, 0.75 + r * 0.25);
+          // darker and lighter tufts, a little warmer or cooler
+          const l = 0.62 + r2 * 0.32;
+          color.setRGB(l, l * (0.95 + r * 0.05), l * (0.84 + r * 0.1));
           this.mesh.setColorAt(n, color);
           n++;
         }
@@ -158,6 +202,7 @@ export class Grass {
     }
     this.mesh.count = n;
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.cells.needsUpdate = true;
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
   }
 }
