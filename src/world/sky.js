@@ -460,8 +460,10 @@ export class Atmosphere {
     wb.x *= 1 + 0.07 * warm - 0.03 * w - 0.12 * night - 0.03 * grey;
     wb.y *= 1 - 0.01 * warm - 0.06 * night;
     wb.z *= 1 - 0.1 * warm + 0.04 * w + 0.1 * night + 0.02 * noon + 0.035 * grey;
-    look.saturation = 1.04 + 0.06 * warm - 0.08 * noon - 0.2 * night - 0.05 * mist - 0.14 * grey - 0.06 * rain;
-    look.contrast = 1.05 + 0.06 * warm - 0.04 * noon - 0.06 * mist - 0.08 * grey;
+    // a touch richer than neutral: the photo-scanned ground and foliage are
+    // captured flat and read a little grey under the haze
+    look.saturation = 1.1 + 0.06 * warm - 0.08 * noon - 0.2 * night - 0.05 * mist - 0.14 * grey - 0.06 * rain;
+    look.contrast = 1.09 + 0.06 * warm - 0.04 * noon - 0.06 * mist - 0.08 * grey;
     look.shadowTint.set(1 - 0.06 * warm - 0.02 * w, 1 - 0.02 * warm, 1 + 0.07 * warm + 0.03 * w + 0.02 * grey);
     look.highlightTint.set(1 + 0.04 * warm, 1 + 0.005 * warm, 1 - 0.05 * warm);
     look.vignette = 0.16 + 0.06 * night + 0.03 * grey;

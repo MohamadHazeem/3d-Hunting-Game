@@ -446,7 +446,7 @@ function tubeGeo(B, tube, radial, every, crown) {
 
 // Foliage card. Normals bend away from the crown centre (soft, volumetric
 // light on the whole crown) with a share of the card's own facing.
-function cardGeo(B, cd, scale, crown, own) {
+function cardGeo(B, cd, scale, crown, own, aoLift = 0) {
   const w = cd.w * scale;
   const h = cd.h * scale;
   // scale about the card centre so bigger far cards stay inside the crown
@@ -477,7 +477,7 @@ function cardGeo(B, cd, scale, crown, own) {
     // occlusion: deep inside and low in the crown is darker
     const d = Math.hypot(p.x - crown.c.x, (p.y - crown.c.y) * 1.3, p.z - crown.c.z) / crown.r;
     const ao = (0.5 + 0.5 * smoothstep(0.15, 1.0, d)) * (0.8 + 0.2 * smoothstep(crown.y0, crown.y1, p.y));
-    B.aux.push(ao, cd.bend + sy * 0.15, cd.phase, 1);
+    B.aux.push(ao + (1 - ao) * aoLift, cd.bend + sy * 0.15, cd.phase, 1);
   }
   B.idx.push(start, start + 1, start + 2, start, start + 2, start + 3);
 }
@@ -493,9 +493,10 @@ function crownOf(T) {
 }
 
 const LOD = {
-  near: { keep: 1, grow: 1, maxLevel: 2, radial: [9, 6, 4], every: 1 },
-  mid: { keep: 0.5, grow: 1.32, maxLevel: 1, radial: [6, 4], every: 2 },
-  far: { keep: 0.15, grow: 2.2, maxLevel: 0, radial: [5], every: 3 },
+  near: { keep: 1, grow: 1, maxLevel: 2, radial: [9, 6, 4], every: 1, aoLift: 0 },
+  // fewer, bigger cards stand for many: their occlusion averages out lighter
+  mid: { keep: 0.5, grow: 1.32, maxLevel: 1, radial: [6, 4], every: 2, aoLift: 0.25 },
+  far: { keep: 0.15, grow: 2.2, maxLevel: 0, radial: [5], every: 3, aoLift: 0.45 },
 };
 
 // Near / mid / far geometry for one tree. Far levels keep the outer cards
@@ -517,7 +518,7 @@ export function treeLods(T, own = 0.25) {
     }
     const leaves = new Buf();
     const n = Math.max(4, Math.round(scored.length * L.keep));
-    for (let i = 0; i < Math.min(n, scored.length); i++) cardGeo(leaves, scored[i].cd, L.grow, crown, own);
+    for (let i = 0; i < Math.min(n, scored.length); i++) cardGeo(leaves, scored[i].cd, L.grow, crown, own, L.aoLift);
     out[name] = { wood: wood.n ? wood.geometry() : null, leaves: leaves.geometry() };
   }
   const trunk = T.tubes.find((t) => t.level === 0);
